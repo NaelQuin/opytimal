@@ -1,0 +1,108 @@
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Problem Title
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Optimal Stokes-based Problem on segment128
+
+▬▬▬▬▬▬▬▬▬▬▬▬
+Program Mode
+▬▬▬▬▬▬▬▬▬▬▬▬
+    validation
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Data
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+           Amount = 2 (D: 1, N: 1)
+       Inlet mode = Dirichlet
+     Dof in inlet = 4
+           outlet = 4
+            marks = {'inlet': 1, 'outlet': 2}
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Values
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    ug0 = x[0]*(4 - x[0]) 
+     h0 = 4.0 - 2.0*x[0] 
+      g = x[0]*(4 - x[0])*x[0(-t) (Max: 4.0)
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Area
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+     |ds("inlet")| = 1.00e+00
+    |ds("outlet")| = 1.00e+00
+
+▬▬▬▬▬▬▬▬▬▬
+Exact Data
+▬▬▬▬▬▬▬▬▬▬
+    ud = x[0]*(4 - x[0])*x[0(-t)
+    fd = -x[0]*(4 - x[0]) + 2
+    hd = 4.0 - 2.0*x[0]
+
+▬▬▬▬▬▬▬▬▬▬
+Input Data
+▬▬▬▬▬▬▬▬▬▬
+    u0 = x[0]*(4 - x[0])
+    f0 = 2
+
+▬▬▬▬▬▬▬
+Normals
+▬▬▬▬▬▬▬
+     inlet = [-1.  0.  0.] (|n| = 1.0)
+    outlet = [1. 0. 0.] (|n| = 1.0)
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Finite Element Data
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+      Th = P1 x P1 x P1 x P1
+     nel = 128
+       h = 3.125e-02
+    cell = interval
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Cost parameters
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+     a_z = (10.0, 0.1)
+     a_f = (1e-05, 1e-06)
+     a_h = (0.0, 10.0)
+    dm_z = dx
+    dm_f = dx
+    dm_h = ds
+
+▬▬▬▬▬▬▬▬▬▬▬
+System data
+▬▬▬▬▬▬▬▬▬▬▬
+      Nonzeros: 6.160 K
+          DOFS: 516
+ Linear Solver: tfqmr
+Preconditioner: jacobi
+       Runtime: 00:00:00.031
+
+▬▬▬▬▬▬▬▬▬▬
+Cost Value
+▬▬▬▬▬▬▬▬▬▬
+    J(u, f, h) = 2.857e-02
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+||U - ud||_Y(0,T; X(Ω))
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    L², L² : 1.009e-01
+    L², H¹ : 3.680e+00
+    L∞, L² : 4.085e-02
+    L∞, H¹ : 1.310e+00
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+||F - fd||_Y(0,T; X(Ω))
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    L², L² : 6.668e+01
+    L², H¹ : 5.865e+02
+    L∞, L² : 2.337e+01
+    L∞, H¹ : 2.381e+02
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+||H - hd||_Y(0,T; X(Ω))
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    L², L² : 2.199e+01
+    L², H¹ : 2.473e+01
+    L∞, L² : 4.000e+00
+    L∞, H¹ : 4.472e+00
+e+01

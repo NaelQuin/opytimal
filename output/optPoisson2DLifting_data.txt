@@ -1,0 +1,89 @@
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Problem Title
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Optimal Stokes-based Problem on rectangle6
+
+▬▬▬▬▬▬▬▬▬▬▬▬
+Program Mode
+▬▬▬▬▬▬▬▬▬▬▬▬
+    validation
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Data
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+           Amount = 3 (D: 2, N: 1)
+       Inlet mode = Dirichlet
+     Dof in inlet = 516
+           outlet = 516
+             wall = 2056
+            marks = {'inlet': 1, 'outlet': 2, 'wall': 3}
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Values
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    gW = x[1]*(2 - x[1]) 
+     h = 0 
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Area
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+     |ds("inlet")| = 2.00e+00
+    |ds("outlet")| = 2.00e+00
+      |ds("wall")| = 8.00e+00
+
+▬▬▬▬▬▬▬▬▬▬
+Exact Data
+▬▬▬▬▬▬▬▬▬▬
+     ud = x[1]*(2 - x[1])
+     fd = 2
+    ugd = x[1]*(2 - x[1])
+
+▬▬▬▬▬▬▬
+Normals
+▬▬▬▬▬▬▬
+     inlet = [-1. -0. -0.] (|n| = 1.0)
+    outlet = [ 1. -0. -0.] (|n| = 1.0)
+      wall = [ 0. -1. -0.] (|n| = 1.0)
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Finite Element Data
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+      Th = P1 x P1 x P1 x P1
+     nel = 88.064 K
+       h = 1.773e-02
+    cell = triangle
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Cost parameters
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+      a_z = (1.0, 0.1)
+      a_f = (0.0, 0.01)
+     a_ug = (0.0, 0.001)
+      a_h = (0.0, 0.0001)
+     dm_z = dx
+     dm_f = dx
+    dm_ug = ds
+     dm_h = ds
+
+▬▬▬▬▬▬▬▬▬▬▬
+System data
+▬▬▬▬▬▬▬▬▬▬▬
+      Nonzeros: 4.950 M
+          DOFS: 177.668 K
+ Linear Solver: tfqmr
+Preconditioner: jacobi
+       Runtime: 00:02:25.316
+
+▬▬▬▬▬▬▬▬▬
+Cost Data
+▬▬▬▬▬▬▬▬▬
+    J(u, f, ug) = 2.732e-03
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Approach error
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+                          L²         L²(%)          H¹         H¹(%)    
+|| u -  ud||_X(Ω)    2.775825e-02  (1.93142%)  1.254830e-01   (6.38338%)
+|| f -  fd||_X(Ω)    1.280131e-01  (5.38229%)  3.017115e-01  (12.68541%)
+||ug - ugd||_X(Γin)  3.721596e-02  (3.66212%)  2.860948e-01  (20.58223%)

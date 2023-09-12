@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<VTKFile type="Collection" version="0.1">
+  <Collection>
+    <DataSet timestep="0" part="0" file="solHeat2D_u000000.vtu" />
+    <DataSet timestep="0.0625" part="0" file="solHeat2D_u000001.vtu" />
+    <DataSet timestep="0.125" part="0" file="solHeat2D_u000002.vtu" />
+    <DataSet timestep="0.1875" part="0" file="solHeat2D_u000003.vtu" />
+    <DataSet timestep="0.25" part="0" file="solHeat2D_u000004.vtu" />
+    <DataSet timestep="0.3125" part="0" file="solHeat2D_u000005.vtu" />
+    <DataSet timestep="0.375" part="0" file="solHeat2D_u000006.vtu" />
+    <DataSet timestep="0.4375" part="0" file="solHeat2D_u000007.vtu" />
+    <DataSet timestep="0.5" part="0" file="solHeat2D_u000008.vtu" />
+    <DataSet timestep="0.5625" part="0" file="solHeat2D_u000009.vtu" />
+    <DataSet timestep="0.625" part="0" file="solHeat2D_u000010.vtu" />
+    <DataSet timestep="0.6875" part="0" file="solHeat2D_u000011.vtu" />
+    <DataSet timestep="0.75" part="0" file="solHeat2D_u000012.vtu" />
+    <DataSet timestep="0.8125" part="0" file="solHeat2D_u000013.vtu" />
+    <DataSet timestep="0.875" part="0" file="solHeat2D_u000014.vtu" />
+    <DataSet timestep="0.9375" part="0" file="solHeat2D_u000015.vtu" />
+    <DataSet timestep="1" part="0" file="solHeat2D_u000016.vtu" />
+  </Collection>
+</VTKFile>

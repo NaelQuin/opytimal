@@ -1,0 +1,74 @@
+Mesh choice possibilities
+=========================
+
+Segments
+--------
+1.01   ???.??? ?  segment16
+1.02   ???.??? ?  segment32
+1.03   ???.??? ?  segment64
+1.04   ???.??? ?  segment128
+1.05   ???.??? ?  segment256
+1.06   ???.??? ?  segment304
+1.07   ???.??? ?  segment362
+1.08   ???.??? ?  segment430
+1.09   ???.??? ?  segment512
+
+
+Rectangles
+----------
+2.01     2.881 K  rectangle16
+2.02    11.685 K  rectangle32
+2.03    46.200 K  rectangle64
+2.04   183.788 K  rectangle128
+2.05   733.365 K  rectangle256
+2.06     1.034 M  rectangle304
+2.07     1.464 M  rectangle362
+2.08     2.066 M  rectangle430
+2.09     2.926 M  rectangle512
+
+
+Cylinders
+---------
+3.01    12.941 K  cylinder16
+3.02    93.641 K  cylinder32
+3.03   707.889 K  cylinder64
+3.04     1.175 M  cylinder76
+3.05     1.931 M  cylinder90
+3.06     3.229 M  cylinder107
+3.07     5.487 M  cylinder128
+
+
+Different Types
+---------------
+3.11   237.412 K  Stenosys
+3.12   622.912 K  Stenotic Bypass
+3.13     2.703 M  Surfmesh
+
+
+Aneurysms
+---------
+3.21     1.727 M  aneurysm
+
+3.221    2.570 M  smallAneurysm
+3.222    2.976 M  smallAneurysm2
+
+3.231    4.669 M  aneurysmItksnap2
+3.232    8.771 M  aneurysmItksnap
+
+
+Aortas
+------
+3.31   482.412 K  aortaIdealized
+
+3.321    1.070 M  pulmonaryCropped
+3.322    1.413 M  pulmonaryCroppedR
+3.323    1.529 M  pulmonaryCroppedL
+3.324    2.032 M  pulmonary
+
+3.331    1.312 M  aortaCropped
+3.332    2.166 M  aorta
+
+3.34     3.896 M  aortaCoarctation
+
+3.351    2.144 M  aortaCoronariesUnrefined
+3.352    9.380 M  aortaCoronaries
