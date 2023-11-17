@@ -32,3 +32,21 @@ from opytimal.fenics import (setExpression, extractElements, calculeNnz,
                              getOptimalConditionsSystem, evaluateCost,
                              getLocal, setLocal, showProblemData,
                              getFunctionExpressions)
+
+
+def __getattr__(attr):
+    # Warn for expired attributes
+    import warnings
+
+    if attr == "demos":
+        import opytimal.demos as demos
+        return demos
+
+    raise AttributeError("module {!r} has no attribute "
+                            "{!r}".format(__name__, attr))
+
+def __dir__():
+    public_symbols = (
+        {'demos'}
+    )
+    return list(public_symbols)

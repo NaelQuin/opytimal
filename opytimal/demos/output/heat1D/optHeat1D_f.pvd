@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<VTKFile type="Collection" version="0.1">
+  <Collection>
+    <DataSet timestep="0.03125" part="0" file="optHeat1D_f000000.vtu" />
+    <DataSet timestep="0.0625" part="0" file="optHeat1D_f000001.vtu" />
+    <DataSet timestep="0.09375" part="0" file="optHeat1D_f000002.vtu" />
+    <DataSet timestep="0.125" part="0" file="optHeat1D_f000003.vtu" />
+    <DataSet timestep="0.15625" part="0" file="optHeat1D_f000004.vtu" />
+    <DataSet timestep="0.1875" part="0" file="optHeat1D_f000005.vtu" />
+    <DataSet timestep="0.21875" part="0" file="optHeat1D_f000006.vtu" />
+    <DataSet timestep="0.25" part="0" file="optHeat1D_f000007.vtu" />
+    <DataSet timestep="0.28125" part="0" file="optHeat1D_f000008.vtu" />
+    <DataSet timestep="0.3125" part="0" file="optHeat1D_f000009.vtu" />
+    <DataSet timestep="0.34375" part="0" file="optHeat1D_f000010.vtu" />
+    <DataSet timestep="0.375" part="0" file="optHeat1D_f000011.vtu" />
+    <DataSet timestep="0.40625" part="0" file="optHeat1D_f000012.vtu" />
+    <DataSet timestep="0.4375" part="0" file="optHeat1D_f000013.vtu" />
+    <DataSet timestep="0.46875" part="0" file="optHeat1D_f000014.vtu" />
+    <DataSet timestep="0.5" part="0" file="optHeat1D_f000015.vtu" />
+    <DataSet timestep="0.53125" part="0" file="optHeat1D_f000016.vtu" />
+    <DataSet timestep="0.5625" part="0" file="optHeat1D_f000017.vtu" />
+    <DataSet timestep="0.59375" part="0" file="optHeat1D_f000018.vtu" />
+    <DataSet timestep="0.625" part="0" file="optHeat1D_f000019.vtu" />
+    <DataSet timestep="0.65625" part="0" file="optHeat1D_f000020.vtu" />
+    <DataSet timestep="0.6875" part="0" file="optHeat1D_f000021.vtu" />
+    <DataSet timestep="0.71875" part="0" file="optHeat1D_f000022.vtu" />
+    <DataSet timestep="0.75" part="0" file="optHeat1D_f000023.vtu" />
+    <DataSet timestep="0.78125" part="0" file="optHeat1D_f000024.vtu" />
+    <DataSet timestep="0.8125" part="0" file="optHeat1D_f000025.vtu" />
+    <DataSet timestep="0.84375" part="0" file="optHeat1D_f000026.vtu" />
+    <DataSet timestep="0.875" part="0" file="optHeat1D_f000027.vtu" />
+    <DataSet timestep="0.90625" part="0" file="optHeat1D_f000028.vtu" />
+    <DataSet timestep="0.9375" part="0" file="optHeat1D_f000029.vtu" />
+    <DataSet timestep="0.96875" part="0" file="optHeat1D_f000030.vtu" />
+    <DataSet timestep="1" part="0" file="optHeat1D_f000031.vtu" />
+  </Collection>
+</VTKFile>
