@@ -1,60 +1,57 @@
 '''
-This script solve the optimal control problem subject
-to Heat equation, considering multiple controls
+Optimal Control Heat-based Evolutive Problem on 1D domain
 '''
 
-# from modules import *
-# from settings import settings
-
 from dolfin import *
-import numpy as np
-import sympy as sp
-
-from backend.mathFunctions import sin, cos, tan, exp, log, ln
-from backend.settings import QUADRATURE_DEG
-from backend.symbols import x, y, z, t, symbols
-from backend.string import showInfo, splitPathFile, replaceProgressive, basename, showErrors
-from backend.tests import testLoop
-from backend.analytical import AnalyticalFunction, AnalyticalVectorFunction
-from backend.parallel import parallel
-from backend.types import Tuple, Union
-from backend.profiler import ProgressBar
-from backend.numeric import getPow10
-from backend.arrays import (identity, zeros, getComplement, array, concatenate,
-                            norm as arrNorm)
-from backend.plots import (plotMesh, plotComparison, adjustFiguresInScreen,
-                           show, figure, dynamicComparison)
-from backend.meshes import (readXDMFMesh, getInnerNodes, getSubMeshes,
-                            getCoordinates, getNormal)
-from backend.fenics import (setExpression, extractElements, calculeNnz, mySolve,
-                            setSolver, getErrorFormula, gradJ, copySolver,
-                            getFormTerm, emptyForm, gradientDescent, showError,
-                            getDomainLabels, replaceBoundNameByMark,
-                            getMeasure, evaluateErrors, Zero, getAdjointSystem,
-                            getOptimalConditionsSystem, evaluateCost,
-                            getLocal, setLocal, showProblemData, 
-                            getInputExactData, getFunctionExpressions,
-                            appendErrorsByTime)
-
-# Global value
-THREADS = []
+from opytimal import *
+from opytimal.settings import QUADRATURE_DEG, THREADS
 
 # ================
 # Input Data Begin
 # ================
 Tf = 1
+teta = 0.5
 dt = {
     1: "mesh.hmax()",
     2: 1e-3
 }[1]
-teta = 0.5
 
-meshLimits = (0, 4)
-meshNel = 128
+meshPath = './InputData/Meshes/2D/rectangle4'
+boundaryDataPath = './InputData/Meshes/2D/rectangle4_mf'
 
-invertNormalOrientation = False
+boundaryMark = {
+    'inlet': 1,
+    'outlet': 2,
+    'wall': 3
+}
 
-showMesh = False
+normals = {
+    'inlet': [-1, 0, 0],
+    'outlet': [1, 0, 0]
+}
+# To get normals from mesh, uncomment the code below
+# normals = None
+
+invertNormalOrientation = False # Multiply all normals to -1
+
+showMesh = False # Turn to True to check the normal vectors
+showSolution = True
+showSolutionType = {
+    1: 'tex', # generate a tikz plot in a file.tex
+    2: 'png,300', # savefig as png with dpi scaling
+    3: 'none' # interactive show
+}[3]
+plotStyle = {
+    1: "seaborn-v0_8-talk", # To talks
+    2: "ggplot", # To soft background and colors
+    3: "default", # Python standard plot
+    4: 'fivethirtyeight',
+    5: 'grayscale',
+    6: "seaborn-v0_8-pastel",
+}[2]
+
+# Set the pyplot graphs style
+setPltStyle(plotStyle)
 
 exportSolutionsPath = {
     'U': '/output/'.join(splitPathFile(__file__)).replace('.py', '_U.pvd'),
@@ -81,9 +78,9 @@ controls = {
     2: ['ug', 'h'], # Boundary controls
     3: ['f', 'h'], # Mixed Controls (Neumann)
     4: ['f', 'ug'], # Mixed Controls (Dirichlet)
-    5: ['h'],
+    5: ['f'],
     6: []
-    }[3]
+    }[4]
 
 linSolver = 'tfqmr'
 preconditioner = ['none', 'jacobi'][1]
@@ -95,8 +92,8 @@ allAtOnce = True
 a_s = {
     'z': (10, 1e-1),
     'f': (1e-5, 1e-6),
-    'ug': (1e-5, 1e-6),
-    'h': (0, 1e-2)
+    'ug': (1e-5, 1e-1),
+    'h': (0, 10)
 }
 
 # Cost measures
@@ -121,7 +118,7 @@ gamma = {
 # Exact Data
 # ==========
 def ud(*x, t=0):
-    return x[0]*(4 - x[0]) * exp(-t)
+    return (x[1]*(2 - x[1]) + x[0]*(4 - x[0])) * exp(-t)
 
 def u0(*x):
     'Inital solution'
@@ -153,6 +150,10 @@ def hd(*x, t=0):
 # ==========
 # Input Data
 # ==========
+def gW(*x, t=t):
+    'Dirichlet value on Γ_W'
+    return _ud(*x, t=t)
+
 if 'f' not in controls:
     def f(*x, t=t):
         'Source term'
@@ -253,33 +254,17 @@ if externalTxt is not None:
 # Turn to analytical function object
 _ud = AnalyticalFunction(ud(x, y, z, t=t), toccode=True)
 
+input(_ud._grad)
+
 # Check if is a optimal problem
 optimal = any(controls)
 
-# Generate the mesh
-mesh = IntervalMesh(meshNel, *meshLimits)
+# Load the mesh and boundary data
+mesh, boundaryData, _ = readXDMFMesh(meshPath, boundaryDataPath)
 
-# Set the dt value as h
 if type(dt) is str:
     # Evaluate the dt choice
     dt = eval(dt)
-
-# Set the boudnary data
-boundaryData = MeshFunction(
-    'size_t', mesh, mesh.geometric_dimension()-1, value=0
-    )
-
-# Create boundary indetifyers
-inlet = CompiledSubDomain(
-    f'near(x[0], {meshLimits[0]}, DOLFIN_EPS) and on_boundary'
-    )
-outlet = CompiledSubDomain(
-    f'near(x[0], {meshLimits[1]}, DOLFIN_EPS) and on_boundary'
-    )
-
-# Mark the boundary data
-inlet.mark(boundaryData, 1)
-outlet.mark(boundaryData, 2)
 
 # Get the geometric dimension
 gdim = mesh.geometric_dimension()
@@ -295,58 +280,20 @@ dx = Measure(
     "dx",
     domain=mesh,
     metadata={"quadrature_degree": QUADRATURE_DEG}
-    )
+)
 ds = Measure(
     "ds",
     domain=mesh,
     subdomain_data=boundaryData,
     metadata={"quadrature_degree": QUADRATURE_DEG}
-    )
+)
 
 # Get the boundary marks
 boundaryMark = {
     'inlet': 1,
-    'outlet': 2
-    }
-
-# Get the mesh inner nodes
-innerNodes = getInnerNodes(mesh, bmesh)
-
-# Get the inlet and outlet boundary node finders
-inletNodeFinder = [
-    inlet.inside(x, x in bmesh.coordinates())
-        for x in mesh.coordinates()
-    ]
-outletNodeFinder = [
-    outlet.inside(x, x in bmesh.coordinates())
-        for x in mesh.coordinates()
-    ]
-
-# Get the resepctive node
-inletNode = (np.ravel(mesh.coordinates())*inletNodeFinder).sum()
-outletNode = (np.ravel(mesh.coordinates())*outletNodeFinder).sum()
-
-# Adjust the vectors to plot
-innerNodes = np.hstack((innerNodes, 0*innerNodes))
-inletNode = [inletNode, 0]
-outletNode = [outletNode, 0]
-
-# Get the normals
-normals = {
-    'inlet': array([assemble(n[0]*ds(boundaryMark['inlet'])), 0, 0]),
-    'outlet': array([assemble(n[0]*ds(boundaryMark['outlet'])), 0, 0])
+    'outlet': 2,
+    'wall': 3
 }
-
-if invertNormalOrientation:
-    # Invert each normal orientation
-    normals = {k: v*-1 for k, v in normals.items()}
-
-if showMesh:
-    # Plot the mesh and bmesh nodes by category
-    plotMesh(
-        innerNodes.T, inletNode, outletNode,
-        labels=['inner', 'inlet', 'outlet']
-        )
 
 # Set the respective boundary measures
 dsInlet = ds(boundaryMark['inlet'])
@@ -368,6 +315,29 @@ for c in list(a_s.keys()):
 
     # Evaluate the respective cost measure
     dm[c] = eval(replaceBoundNameByMark(f"{dm[c]}", boundaryMark))
+
+# Get the mesh inner nodes
+innerNodes = getInnerNodes(mesh, bmesh)
+
+# Get the boundaries submesh
+boundarySubMeshes = getSubMeshes(boundaryData, boundaryMark)
+
+# Get the normals
+normals = {bound: getNormal(boundMesh)
+              for bound, boundMesh in boundarySubMeshes.items()}
+
+if invertNormalOrientation:
+    # Invert each normal orientation
+    normals = {k: v*-1 for k, v in normals.items()}
+
+if showMesh:
+    # Plot the mesh and bmesh nodes by category
+    plotMesh(
+        innerNodes.T,
+        *[subMesh.coordinates().T
+            for subMesh in boundarySubMeshes.values()],
+        labels=['inner', *boundarySubMeshes.keys()]
+    )
 
 # ----------------------------
 # Set the Finite Element Space
@@ -484,6 +454,7 @@ else:
 
 # Turn input functions to expression
 udExpr = setExpression(_ud, elements[0], name='ud', t=True)
+gWExpr = setExpression(gW, elements[0], name='gW', t=True)
 u0Expr = setExpression(u0, elements[0], name='u0')
 f0Expr = setExpression(f0, elements[0], name='f0')
 ug0Expr = setExpression(ug0, elements[0], name='ug0')
@@ -497,16 +468,17 @@ if 'h' not in controls:
 
 # Set the current input time functions
 ud = interpolate(udExpr, Vc); ud.rename('ud', 'ud')
+gW = interpolate(gWExpr, Vc); gW.rename('gW', 'gW')
 if 'f' not in controls:
     f = interpolate(fExpr, Vc); f.rename('f', 'f')
-    f0 = interpolate(f0Expr, Vc); f0.rename('f0', 'f0')
+    f0 = interpolate(f0Expr, Vc); f0.rename('f', 'f0')
 if 'ug' not in controls:
     g = interpolate(gExpr, Vc); g.rename('g', 'g')
 else:
     ug0 = interpolate(ug0Expr, Vc); ug0.rename('ug0', 'ug0')
 if 'h' not in controls:
     h = interpolate(hExpr, Vc); h.rename('h', 'h')
-    h0 = interpolate(h0Expr, Vc); h0.rename('h0', 'h0')
+    h0 = interpolate(h0Expr, Vc); h0.rename('h', 'h0')
 
 # Set the respectives previous time functions
 zn = Function(Vc, name='zn')
@@ -522,11 +494,11 @@ if 'f' not in controls:
     fn.assign(interpolate(fExpr, Vc))
 if 'h' not in controls:
     hn.assign(interpolate(hExpr, Vc))
-if 'ug' in controls:
-    zn.assign(u0 - ug0)
-else:
-    zn.assign(u0)
-#zn.assign(u0)
+# if 'ug' in controls:
+#     zn.assign(u0 - ug0)
+# else:
+#     zn.assign(u0)
+zn.assign(u0)
 
 # Looping in controls
 for cLbl in controls:
@@ -674,11 +646,13 @@ inletDirichlet = 0\
 # Set the state boundary conditions
 bcsState = [
     DirichletBC(V, inletDirichlet, boundaryData, boundaryMark['inlet']),
+    DirichletBC(V, gW, boundaryData, boundaryMark['wall'])
 ]
 
 # Set the adjoint boundary conditions
 bcsAdj = [
     DirichletBC(VAdj, 0, boundaryData, boundaryMark['inlet']),
+    DirichletBC(VAdj, 0, boundaryData, boundaryMark['wall'])
 ] if optimal else []
 
 if allAtOnce:
@@ -733,7 +707,7 @@ W.nnz = W.nnz[0]
 
 # Show the program data
 showProblemData(
-    f'Optimal Heat-based Problem on segment{meshNel}',
+    f'Optimal Heat-based Problem on {basename(meshPath)}',
     'validation' if _ud is not None else 'simulation',
     Th, W, bcsState if allAtOnce else bcs['state'],
     ds, boundaryMark,
@@ -818,6 +792,12 @@ while t < Tf:
             exactData[k].copy(deepcopy=True)
             )
 
+    # Set the time instant in time functions
+    gWExpr.t = t
+
+    # Update the current time functions
+    gW.assign(interpolate(gWExpr, Vc))
+
     if 'f' not in controls:
         fExpr.t = t
         f.assign(interpolate(fExpr, Vc))
@@ -887,7 +867,7 @@ while t < Tf:
 
     if allAtOnce and optimal:
         # Evaluate and show the cost
-        Jk = evaluateCost(J, Z, ud, C, a_s, dm, copyTo=externalTxt)
+        Jk = evaluateCost(J, Z, ud, C, a_s, dm, show=True, copyTo=externalTxt)
 
         # Store the current time cost value
         costTime.append(Jk)
@@ -990,21 +970,10 @@ for k, errors_k in errorsByTime.items():
         #         errorsTime[k][normType][eType]/exactTimeNorms[k]['L²'],
         #     )
 
-# Finalize the cost time integral
-costTime = sum(costTime)*dt.values()[0]
-
-# Show the cost value
-showInfo('Cost Value', copyTo=externalTxt)
-showInfo(
-    f'J(u, {", ".join(_controls)}) = {costTime:1.03e}',
-    breakStart=False, delimiters=False, tab=4, copyTo=externalTxt
-    )
-
 # Show the approach errors
 for k, errors_k in errorsTime.items():
     showInfo(
-        f"||{k.upper()} - {k}d||_Y(0,T; X(Ω))",
-        copyTo=externalTxt
+        f"||{k.upper()} - {k}d||_Y(0,T; X(Ω))"
         )
     showInfo(
         *np.ravel(
@@ -1012,7 +981,7 @@ for k, errors_k in errorsTime.items():
                 for eType, e in errors.items()]
             for eTypeT, errors in errors_k.items()]
         ), alignment=':', delimiters=False, tab=4,
-           breakStart=False, copyTo=externalTxt
+        breakStart=False
     )
 
 import matplotlib.pyplot as plt
@@ -1037,20 +1006,20 @@ if showSolution:
     # Init a figures list
     figs = [fig]
 
-    # for c in controls:
-    #     # Show the dynamic plot
-    #     fig = dynamicComparison(
-    #         (numericalDataTime[c], exactDataTime[c]),
-    #         iterator=np.arange(0, Tf+_dt, _dt),
-    #         labels=[c.upper(), f'{c}d'],
-    #         linestyles=['-', ''],
-    #         markers=['o', '*'],
-    #         multipleViews=False,
-    #         show=False
-    #         )
+    for c in controls:
+        # Show the dynamic plot
+        fig = dynamicComparison(
+            (numericalDataTime[c], exactDataTime[c]),
+            iterator=np.arange(0, Tf+_dt, _dt),
+            labels=[c.upper(), f'{c}d'],
+            linestyles=['-', ''],
+            markers=['o', '*'],
+            multipleViews=True,
+            show=False
+            )
 
-    #     # Append to the figures list
-    #     figs.append(fig)
+        # Append to the figures list
+        figs.append(fig)
 
     adjustFiguresInScreen(*figs)
     show()

@@ -1,83 +1,95 @@
 '''
 Optimal Poisson-based problem on 1D domain
 
+-------
+Problem
+-------
 -lap(u) = f, Omega
 u = g, Gamma_D
 du/dn = h, Gamma_N
+where dOmega = Gamma_D U Gamma_N
 
-dOmega = Gamma_D U Gamma_N
+-----------------------
+Variational formulation
+-----------------------
+    (grad(u), grad(v)) = (f, v) + (h, v)_{Gamma_N}
 
+for all v in V_{Gamma_D} = {v in H¹; v=0 in Gamma_D},
 
-(lap(u), v) = (grad(u).n, v)_dOmega - (grad(u), grad(v))
-            = (grad(u).n, v)_Gamma_N
+-------
+Lifting
+-------
+    ug in Omega
+    ug = g em Gamma_D
+    dug/dn = 0 em Gamma_N
 
-v in ... v=0 in Gamma_D
-
-
-ug in Omega
-
-ug = g em Gamma_D
-     0 em closer(Omega) \ Gamma_D
-
-
-
-z = u - ug
-z = u - ug em Gamma_D => g - g = 0
-z = 
-
-
-
--lap(z) = f + lap(ug)
-z = 0, Gamma_D
-dz/dn = h, Gamma_N
+---------------
+Change Variable
+---------------
+    z = u - ug
+    -lap(z) = f + lap(ug)
+    z = 0, Gamma_D
+    dz/dn = h, Gamma_N
 '''
 
-# from modules import *
-# from settings import settings
-
 from dolfin import *
-
-from backend.settings import QUADRATURE_DEG
-from backend.symbols import x, y, z, t, symbols
-from backend.string import showInfo, splitPathFile, replaceProgressive, basename
-from backend.meshes import (readXDMFMesh, getInnerNodes, getSubMeshes,
-                            getCoordinates, getNormal)
-from backend.plots import (plotMesh, plotComparison, adjustFiguresInScreen,
-                           show, figure)
-from backend.tests import testLoop
-from backend.fenics import (setExpression, extractElements, calculeNnz, mySolve,
-                            setSolver, getErrorFormula, gradJ, copySolver,
-                            getFormTerm, emptyForm, gradientDescent, showError,
-                            getDomainLabels, replaceBoundNameByMark,
-                            getMeasure, evaluateErrors, Zero, getAdjointSystem,
-                            getOptimalConditionsSystem, evaluateCost,
-                            getLocal, setLocal, showProblemData,
-                            getInputExactData, getFunctionExpressions)
-from backend.analytical import (AnalyticalFunction, AnalyticalVectorFunction)
-from backend.parallel import parallel
-from backend.arrays import (identity, zeros, getComplement, array, concatenate,
-                            ravel, hstack)
-from backend.types import Tuple, Union
+from opytimal import *
+from opytimal.settings import QUADRATURE_DEG
 
 # ================
 # Input Data Begin
 # ================
 meshLimits = (0, 4)
-meshNel = 512
+meshNel = 1024
 
-invertNormalOrientation = False
+boundaryMark = {
+    'inlet': 1,
+    'outlet': 2,
+}
 
-showMesh = False
+normals = {
+    'inlet': [-1, 0, 0],
+    'outlet': [1, 0, 0]
+}
 
-exportSolutionsPath = (
-    '/output/'.join(splitPathFile(__file__))
-    ).replace('.py', '.pvd')
+invertNormalOrientation = False # Multiply all normals to -1
 
+showMesh = False # Turn to True to check the normal vectors
 showSolution = True
+showSolutionType = {
+    1: 'tex', # generate a tikz plot in a file.tex
+    2: 'png,150', # savefig as png with dpi scaling
+    3: 'none' # interactive show
+}[3]
+plotStyle = {
+    1: "seaborn-v0_8-talk", # To talks
+    2: "ggplot", # To soft background and colors
+    3: "default", # Python standard plot
+    4: 'fivethirtyeight',
+    5: 'grayscale',
+    6: "seaborn-v0_8-pastel",
+}[2]
+
+# Set the pyplot graphs style
+setPltStyle(plotStyle)
+
+outputPath = '/output/poisson1D/'
+outputFileNameRoot = splitPathFile(__file__) # The script file name
+
+functionsToExport = [
+    'U', 'ud',
+    'f','ug','h',
+    'fd','ugd','hd',
+    'f0','ug0','h0'
+    ]
+outputSolutionsPaths = {
+    s: (outputPath.join(outputFileNameRoot)).replace('.py', f'_{s}.pvd')
+        for s in functionsToExport
+}
 
 # Write a copy for all prints in the below file
-externalTxt = {
-    1: f'./output/{basename(__file__).replace(".py", "")}_data.txt',
+outputData = {
+    1: (outputPath.join(outputFileNameRoot)).replace(".py", "_data.txt"),
     2: None
 }[1]
 
@@ -97,26 +109,42 @@ controls = {
     6: [] # Without controls
     }[1]
 
-linSolver = 'tfqmr'
-preconditioner = ['none', 'jacobi'][1]
+linSolver = {
+    # Default
+    0: 'tfqmr',
+    # Iteractive solvers
+    1.1: 'tfqmr',
+    1.2: 'bicgstab',
+    # Direct solvers
+    2.0: 'mumps'
+}[0]
+preconditioner = {
+    # Default
+    0: 'jacobi',
+    # Options
+    1.0: 'none',
+    1.1: 'jacobi',
+    1.2: 'hypre_amg',
+    1.3: 'ml_amg'
+}[0]
 
 # System solve mode
 allAtOnce = True
 
 # Cost coefficients
 a_s = {
-    'z': (1, 1e-1),
-    'f': (1e-5, 1e-6),
+    'z': (10, 1e-1),
+    'f': (0, 1e-6),
     'ug': (0, 1e-2),
-    'h': (0, 1e-4)
+    'h': (0, 1e-3)
 }
 
 # Cost measures
 dm = {
     'z': 'dx',
     'f': 'dx',
-    'ug': 'ds(inlet)',
-    'h': 'ds(outlet)'
+    'ug': 'ds["inlet"]',
+    'h': 'ds["outlet"]'
 }
 
 # Descent step size
@@ -129,43 +157,61 @@ gamma = {
     3: '1/8 * (dJk * (dJk - dJk_1)) / norm(dJk_1)**2'
     }[2]
 
-# ==========
-# Exact Data
-# ==========
+# =========================
+# Exact and Input Functions
+# =========================
+# Active the validation mode
+validation = True
+
 def ud(*x):
     return x[0]*(4 - x[0])/4 + 1/(x[0] + 1)
 
 
-def fd(*x):
-    return -_ud.divgrad(*x)
-
-
-def ugd(*x):
-    'Dirichlet value on Γ_D'
-    return _ud(*x)
-
-
-def hd(*x):
-    'Neumann value on Γ_N'
-    return _ud.grad(*x) @ normals['outlet']
-
-# ==========
-# Input Data
-# ==========
-if 'f' not in controls:
-    def f(*x):
-        'Source term'
+if validation:
+    def fd(*x):
         return -_ud.divgrad(*x)
 
-if 'ug' not in controls:
-    def g(*x):
+
+    def ugd(*x):
         'Dirichlet value on Γ_D'
         return _ud(*x)
 
-if 'h' not in controls:
-    def h(*x):
+
+    def hd(*x):
         'Neumann value on Γ_N'
         return _ud.grad(*x) @ normals['outlet']
+
+    if 'f' not in controls:
+        def f(*x):
+            'Source term'
+            return -_ud.divgrad(*x)
+
+    if 'ug' not in controls:
+        def g(*x):
+            'Dirichlet value on Γ_D'
+            return _ud(*x)
+
+    if 'h' not in controls:
+        def h(*x):
+            'Neumann value on Γ_N'
+            return _ud.grad(*x) @ normals['outlet']
+
+else:
+
+    if 'f' not in controls:
+        def f(*x):
+            'Source term'
+            return 0
+
+    if 'ug' not in controls:
+        def g(*x):
+            'Dirichlet value on Γ_D'
+            return x[0]*(4 - x[0])
+
+    if 'h' not in controls:
+        def h(*x):
+            'Neumann value on Γ_N'
+            return 10
 
 # ===============
 # Inital Controls
@@ -174,18 +220,21 @@ if not allAtOnce:
     # Exact percentage
     percent = 0. # in [0, 1]
 
-    def f0(*x):
-        return percent*(-_ud.divgrad(*x))
+    if 'f' in controls:
+        def f0(*x):
+            return percent*(-_ud.divgrad(*x))
 
 
-    def ug0(*x):
-        'Dirichlet value on Γ_D'
-        return percent*_ud(*x)
+    if 'ug' in controls:
+        def ug0(*x):
+            'Dirichlet value on Γ_D'
+            return percent*_ud(*x)
 
 
-    def h0(*x):
-        'Neumann value on Γ_N'
-        return percent*(_ud.grad(*x) @ normals['outlet'])
+    if 'h' in controls:
+        def h0(*x):
+            'Neumann value on Γ_N'
+            return percent*(_ud.grad(*x) @ normals['outlet'])
 
 # ===============
 # Cost Functional
@@ -204,7 +253,8 @@ def J(
     controls: dict[str: Function],
     a: dict[str: Tuple[Constant, Constant]],
     dm: dict[str: Measure],
-    evaluate: bool = True
+    evaluate: bool = True,
+    splitParcels: bool = False
         ) -> (Union[Form, float]):
 
     if type(z) is tuple:
@@ -214,17 +264,36 @@ def J(
     # Get the lift
     ug = controls.get('ug', Zero(z.function_space()))
 
-    # Set the cost function expression
-    expression = a['z'].values() @ normH1a(z + ug - ud, dm['z'])
-    expression += sum(
-        [a[cName].values() @ normH1a(c, dm[cName])
-            for cName, c in controls.items()]
-    )
+    if not splitParcels:
+        # Set the cost function expression
+        expression = a['z'].values() @ normH1a(z + ug - ud, dm['z'])
+        expression += sum(
+            [a[cName].values() @ normH1a(c, dm[cName])
+                for cName, c in controls.items()]
+        )
 
-    # Set the output
-    output = assemble(expression)\
-        if evaluate\
-        else expression
+        # Set the output
+        output = assemble(expression)\
+            if evaluate\
+            else expression
+
+    else:
+        # Multiply the parameters and set the state parcels
+        stateParcels = [*(a['z'].values() * normH1a(z + ug - ud, dm['z']))]
+
+        # Multiply the parameters and set the controls parcels
+        controlsParcels = [
+            (a[cName].values() * normH1a(c, dm[cName]))
+                for cName, c in controls.items()
+        ]
+
+        # Join the parcels
+        parcels = stateParcels + flatten(controlsParcels).tolist()
+
+        # Set the output
+        output = sum([assemble(parcel) for parcel in parcels])\
+            if evaluate\
+            else sum(parcels)
 
     return output
 
@@ -239,14 +308,16 @@ def gradJ(*aud, v):
         grad += a.values() @ normH1aDiff(u, dm, v)
 
     return grad
-
 # ==============
 # Input Data End
 # ==============
 
-if externalTxt is not None:
+if outputData is not None:
+    # Create the folder if it doesn't exist
+    createFolder(outputData)
+
     # Create the txt file
-    externalTxt = open(externalTxt, 'w', encoding='utf-8')
+    outputData = open(outputData, 'w', encoding='utf-8')
 
 # Turn to analytical function object
 _ud = AnalyticalFunction(ud(x, y, z), toccode=True)
@@ -289,22 +360,15 @@ dx = Measure(
     domain=mesh,
     metadata={"quadrature_degree": QUADRATURE_DEG}
 )
-ds = Measure(
+_ds = Measure(
     "ds",
     domain=mesh,
     subdomain_data=boundaryData,
     metadata={"quadrature_degree": QUADRATURE_DEG}
 )
 
-# Get the boundary marks
-boundaryMark = {
-    'inlet': 1,
-    'outlet': 2
-}
-
 # Set the respective boundary measures
-dsInlet = ds(boundaryMark['inlet'])
-dsOutlet = ds(boundaryMark['outlet'])
+ds = {bound: _ds(boundaryMark[bound]) for bound in boundaryMark}
 
 # Looping in controls
 for c in a_s.keys():
@@ -336,15 +400,17 @@ innerNodes = hstack((innerNodes, 0*innerNodes))
 inletNode = [inletNode, 0]
 outletNode = [outletNode, 0]
 
-# Get the normals
-normals = {
-    'inlet': array([assemble(n[0]*ds(boundaryMark['inlet'])), 0, 0]),
-    'outlet': array([assemble(n[0]*ds(boundaryMark['outlet'])), 0, 0])
-}
+if normals is None:
+    # Get the normals
+    normals = {bound: getNormal(boundMesh)
+                for bound, boundMesh in boundarySubMeshes.items()}
 
-if invertNormalOrientation:
-    # Invert each normal orientation
-    normals = {k: v*-1 for k, v in normals.items()}
+    if invertNormalOrientation:
+        # Invert each normal orientation
+        normals = {k: v*-1 for k, v in normals.items()}
+else:
+    # Turn normals to array
+    normals = {k: array(v) for k, v in normals.items()}
 
 if showMesh:
     # Plot the mesh and bmesh nodes by category
@@ -418,6 +484,7 @@ VOptC = dict((c, S.collapse()) for c, S in VOpt.items())\
 
 # Get the function space dofs and store it in itself
 W.dofs = len(W.dofmap().dofs())
+V.dofs = len(Vc.dofmap().dofs())
 
 # Get the matrix nonzero amount
 thrdNnz, W.nnz = parallel(calculeNnz, W, dx)
@@ -486,12 +553,14 @@ if 'h' not in controls:
 
 # Looping in controls
 for cLbl in controls:
-    # Set the respective control input expressions
-    exec(f"{cLbl}dExpr = setExpression({cLbl}d, elements[0], name='{cLbl}d')")
 
-    # Set the respective input data functions
-    exec(f"{cLbl}d = interpolate({cLbl}dExpr, VOptC['{cLbl}'])")
-    exec(f"{cLbl}d.rename('{cLbl}d', '{cLbl}d')")
+    if validation:
+        # Set the respective control input expressions
+        exec(f"{cLbl}dExpr = setExpression({cLbl}d, elements[0], name='{cLbl}d')")
+
+        # Set the respective input data functions
+        exec(f"{cLbl}d = interpolate({cLbl}dExpr, VOptC['{cLbl}'])")
+        exec(f"{cLbl}d.rename('{cLbl}d', '{cLbl}d')")
 
     if not allAtOnce:
         # Set the respective initial control expressions
@@ -501,12 +570,19 @@ for cLbl in controls:
         exec(f"{cLbl}0 = interpolate({cLbl}0Expr, VOptC['{cLbl}'])")
         exec(f"{cLbl}0.rename('{cLbl}0', '{cLbl}0')")
 
-        # Group intial controls by category
-        initialControls = {c: eval(f'{c}0') for c in controls}
+# Group intial controls by category
+initialControls = {c: eval(f'{c}0') for c in controls}\
+    if not allAtOnce\
+    else {}
 
-# Group by category the exact data
-exactData = {'ud': ud}\
-    | {c: eval(f'{c}d') for c in controls}
+if validation:
+    # Group by category the exact data
+    exactData = {'ud': ud}\
+        | {c: eval(f'{c}d') for c in controls}
+
+else:
+    # Store the observation data
+    exactData = {'ud': ud}
 
 # Loop in controls name
 for cLbl in controls:
@@ -534,7 +610,7 @@ U = Function(Vc, name='U')
 
 # Set the variational system
 aState = 'dot(grad(z), grad(v[0]))*dx'
-LState = 'dot(f, v[0])*dx + dot(h, v[0])*dsOutlet'
+LState = 'dot(f, v[0])*dx + dot(h, v[0])*ds["outlet"]'
 if 'ug' in controls:
     LState += '- dot(grad(ug), grad(v[0]))*dx'
 
@@ -628,39 +704,25 @@ else:
     # Split dricihlet boundary conditions by problem
     bcs = {'state': bcsState, 'adjoint': bcsAdj}
 
-# # Set the preconditioner
-# preconditioner = ['none', 'jacobi'][1]
-
 # Set the solver
-#solver = setSolver('tfqmr', preconditioner)
-#solver = setSolver('mumps')
 solver = setSolver(linSolver, preconditioner)
-
-# Set the stabilizator scalar
-beta = Constant(mesh.hmax()**2, name='β')
-
-if 'h' in controls and allAtOnce:
-    # Add the stabilizator term
-    aOptimal += beta*dot(grad(h), grad(v[2+_controls.index('h')]))*dx
-
-elif 'h' in controls:
-    # Get the h index
-    hIdx = _controls.index('h')
-
-    # Add the stabilizator term
-    aOptimal[hIdx] += beta*dot(grad(dJ[hIdx]), grad(v[2+hIdx]))*dx
 
 # Get the trial functions of the collapsed subspaces
 # (for the approach errors calculus)
 u = TrialFunction(V)
 c = {c: TrialFunction(VOptC[c]) for c in controls}
 
-# Set the error formulas
+# Set the error formula to observation data
 errors = {
-    'u': getErrorFormula(ud, dm['z'], relative=True),
-    **{c: getErrorFormula(eval(f'{c}d'), dm[c], relative=True)
-            for c in controls}
+    'u': getErrorFormula(ud, dm['z'], relative=True)
 }
+
+if validation:
+    # Set the error formulas
+    errors.update({
+        **{c: getErrorFormula(eval(f'{c}d'), dm[c], relative=True)
+                for c in controls}
+    })
 
 # Set the domain labels
 omg = getDomainLabels(
@@ -677,16 +739,14 @@ W.nnz = W.nnz[0]
 
 # Show the program data
 showProblemData(
-    f'Optimal Stokes-based Problem on segment{meshNel}',
-    'validation' if _ud is not None else 'simulation',
+    f'Optimal Poisson-based Problem on segment{meshNel}',
+    'validation' if validation else 'simulation',
     Th, W, bcsState if allAtOnce else bcs['state'],
-    ds, boundaryMark,
+    _ds, boundaryMark,
     getFunctionExpressions(getInputExactData(globals())),
     normals,
     g if 'ug' not in controls else None,
-    a_s,
-    dm,
-    copyTo=externalTxt
+    a_s, dm, copyTo=outputData
 )
 
 if allAtOnce:
@@ -699,7 +759,7 @@ if allAtOnce:
     # Solve the all at once system
     mySolve(a == L, ZLZC, bcs, solver,
             runtime=True, nnz=W.nnz, dofs=W.dofs,
-            copyTo=externalTxt)
+            copyTo=outputData)
 
 else:
     # Split the problems
@@ -714,7 +774,8 @@ else:
     errors = gradientDescent(
         _controls, J, a_s, dm, *zip(a, L, w), bcs, (solver, solverCopy),
         exactData, initialControl=initialControls, rho=rho,
-        gamma=gamma, errorForm=errors, copyTo=externalTxt
+        gamma=gamma, errorForm=errors if validation else None,
+        copyTo=outputData
     )[2]
 
 # Split the solutions
@@ -746,36 +807,29 @@ if 'ug' in controls:
     # Add the lifting contribution
     setLocal(U, getLocal(U) + getLocal(C['ug']))
 
+# Set the evaluate errors function arguments
+errorsArgs = [(U, errors['u'])]
+errorsKwargs = {
+    'labels':['u'],
+    'relative': type(errors['u']['L²']) is tuple
+}
+
 if allAtOnce and optimal:
     # Evaluate and show the cost
-    evaluateCost(J, Z, ud, C, a_s, dm, show=True, copyTo=externalTxt)
+    evaluateCost(J, Z, ud, C, a_s, dm, show=True, copyTo=outputData)
 
-    # Calcule approach errors
-    errors = evaluateErrors(
-        (U, errors['u']),
-        *[(C[c], errors[c]) for c in controls],
-        labels=['u', *controls],
-        relative=type(errors['u']['L²']) is tuple
-        )
+    if validation:
+        # Add the pressure and controls error formulas and labels
+        errorsArgs += [
+            *[(C[c], errors[c]) for c in controls]
+            ]
+        errorsKwargs['labels'] += [*controls]
 
-elif not optimal:
-    # Calcule approach errors
-    errors = evaluateErrors(
-        (U, errors['u']),
-        labels=['u'],
-        relative=type(errors['u']['L²']) is tuple
-        )
+# Calcule approach errors
+errors = evaluateErrors(*errorsArgs, **errorsKwargs)
 
 # Show the approach error
-showError(errors, omg, precision=6, copyTo=externalTxt)
-
-import matplotlib.pyplot as plt
-plt.rcParams['xtick.labelsize']=12
-plt.rcParams['ytick.labelsize']=12
-plt.rcParams['legend.fontsize']=15
-plt.rcParams['lines.markersize'] = 3
-plt.rcParams['lines.linewidth'] = 3
-
+showError(errors, omg, precision=3, copyTo=outputData)
 
 if showSolution:
     # Set the common args
@@ -784,7 +838,7 @@ if showSolution:
         'show': False,
         'interactive': False,
         'personalPlot': False,
-        #'markevery': np.arange(0, W.dofs, min(W.dofs//8, 1))
+        #'markevery': arange(0, V.dofs, min(W.dofs//8, 6))
     }
 
     # Plot the solution comparison
@@ -792,25 +846,72 @@ if showSolution:
         ud, U, **commonArgs
     )
 
+    # Init a figures list
     figs = [fig]
 
+    # Looping in controls labels
     for c in controls:
+        # Plot the respective control comparison plot
         fig = plotComparison(
             exactData[c], C[c], **commonArgs
         )
 
+        # Append to figures list
         figs.append(fig)
 
+    # Distribute figures in screen
     adjustFiguresInScreen(*figs)
 
-    show()
+    if showSolutionType == 'none':
+        args = []
 
-# Create a file to export solutions
-file = File(exportSolutionsPath)
+    else:
+        # Set the output path and file name
+        args = [outputPath.join(outputFileNameRoot).replace('.py', '')]
 
-# Export the solution
-file.write(U)
+        if showSolutionType == 'tex':
+            # Add the file extension
+            args += ['tex']
 
-if externalTxt is not None:
+        elif ',' in showSolutionType:
+            # Get the file extension and dpi
+            extension, dpi = showSolutionType.split(',')
+
+            # Add it
+            args += [extension, int(dpi)]
+
+        elif showSolutionType in imageTypes():
+            # Add the file extension and dpi
+            args += [showSolutionType]
+
+        else:
+            # Wrong choice
+            args = []
+
+    # Show the plots
+    show(
+        *args,
+        grid=plotStyle not in ['ggplot', 'bmh', 'fivethirtyeight',
+                               'grayscale']
+        )
+
+# Set the solutions to export pvd file
+allFunctions = [
+    U, *C.values(),
+    *exactData.values(),
+    *initialControls.values()
+]
+
+# Looping in solutions to export
+for sol in allFunctions:
+
+    if sol.name() in outputSolutionsPaths:
+        # Create respective file
+        file = File(outputSolutionsPaths[sol.name()])
+
+    # Export the respective solution
+    file.write(sol)
+
+if outputData is not None:
     # Close the external txt file
-    externalTxt.close()
+    outputData.close()

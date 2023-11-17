@@ -4,11 +4,12 @@ Module of the arrays proccessment methods
 
 __all__ = ['identity', 'split', 'zeros', 'zero', 'complement', 'prod',
            'splitSlice', 'removeEmpty', 'vectorize', 'concatenate',
-           'contains', 'vstack']
+           'contains', 'vstack', 'flatten']
 
 from copy import copy
 
 import numpy as np
+from numpy import hstack, vstack, ravel, arange
 
 from .types import (Array, Union, Tuple, Map, Any, Function)
 from .tests import testLoop
@@ -47,7 +48,7 @@ def split(
 def splitSlice(
     arr: Union[Array, list, tuple, str],
     step: int = 1
-        ) -> list[Union[Array, list, tuple, str]]:
+        ) -> (list[Union[Array, list, tuple, str]]):
 
     if type(arr) is not list:
         # Turn to list
@@ -69,7 +70,10 @@ def splitSlice(
     return splitted
 
 
-def array(*arr: Array, dtype: type = None) -> Union[Array, Map[Array]]:
+def array(
+    *arr: Array,
+    dtype: type = None
+        ) -> (Union[Array, Map[Array]]):
     # Turn to numpy array
     output = map(lambda a: np.array(a, dtype=dtype), arr)\
         if len(arr) > 1\
@@ -78,17 +82,19 @@ def array(*arr: Array, dtype: type = None) -> Union[Array, Map[Array]]:
     return output
 
 
-def zero() -> float:
+def zero() -> (float):
     return 0
 
 
-def zeros(dim: int) -> Array:
+def zeros(
+    dim: int
+        ) -> (Array):
     return np.zeros(dim)
 
 
 def getComplement(
     *arrays: Union[Array, list, tuple]
-    ) -> Union[Array, list]:
+        ) -> (Union[Array, list]):
 
     if len(arrays) == 1:
         return arrays[0]
@@ -113,11 +119,15 @@ def getComplement(
     return arr1
 
 
-def prod(arr) -> Any:
+def prod(
+    arr: Union[Array, list, tuple]
+        ) -> (Any):
     return np.prod(arr)
 
 
-def tolist(arr: Union[Array, list, tuple, str]) -> list[Any]:
+def tolist(
+    arr: Union[Array, list, tuple, str]
+        ) -> (list[Any]):
     output = arr.tolist()\
         if type(arr) is Array\
         else list(arr)
@@ -127,7 +137,7 @@ def tolist(arr: Union[Array, list, tuple, str]) -> list[Any]:
 def count(
     arr: Union[Array, list, tuple, str],
     element: Any,
-        ) -> int:
+        ) -> (int):
 
     if element not in arr:
         return 0
@@ -153,7 +163,7 @@ def count(
 def manualCount(
     arr: Union[Array, list, tuple, str],
     element: Any,
-        ) -> int:
+        ) -> (int):
 
     if element not in arr:
         return 0
@@ -180,7 +190,7 @@ def manualRemove(
     element: Any,
     occur: int = None,
     inplace: bool = False
-        ) -> Union[Array, list, tuple, str]:
+        ) -> (Union[Array, list, tuple, str]):
 
     if not inplace and type(arr) not in (tuple, str):
         # Get an array copy
@@ -226,7 +236,7 @@ def remove(
     element: Any,
     occur: int = None,
     inplace: bool = False
-        ) -> Union[Array, list, tuple, str]:
+        ) -> (Union[Array, list, tuple, str]):
 
     if not inplace and type(arr) not in (tuple, str):
         # Get an array copy
@@ -290,7 +300,7 @@ def removeEmpty(
     arr: Union[Array, list, tuple, str],
     type: type = list,
     inplace: bool = False
-        ) -> Union[Array, list, tuple, str]:
+        ) -> (Union[Array, list, tuple, str]):
 
     if not inplace:
         # Get a array copy
@@ -302,14 +312,16 @@ def removeEmpty(
     return None
 
 
-def vectorize(f: Function) -> Function:
+def vectorize(
+    f: Function
+        ) -> (Function):
     return np.vectorize(f)
 
 
 def concatenate(
     *arrs: Union[Array, list, tuple, str],
     axis: int = 0
-        ) -> Union[Array, list, tuple, str]:
+        ) -> (Union[Array, list, tuple, str]):
 
     if len(arrs) == 0:
         raise ValueError('The variable "arrs" not be empty')
@@ -335,7 +347,10 @@ def concatenate(
     return concatenated
 
 
-def contains(arr1: Array, arr2: Array) -> Array:
+def contains(
+    arr1: Array,
+    arr2: Array
+        ) -> (Array):
     # Turn to array
     arr1 = np.array(arr1)
     arr2 = np.array(arr2)\
@@ -365,25 +380,23 @@ def contains(arr1: Array, arr2: Array) -> Array:
     return answer
 
 
-def contain(c: str, s: str) -> bool:
+def contain(
+    c: str,
+    s: str
+        ) -> (bool):
     return c in s
 
 
-def containsString(arr1: Array, arr2: Array) -> Array:
+def containsString(
+    arr1: Array,
+    arr2: Array
+        ) -> (Array):
     answer = []
     for a2 in arr2:
         answer.append(list(map(contain, len(arr1)*[a2], arr1)))
     if len(answer) == 1:
         answer = answer[0]
     return np.array(answer)
-
-
-def vstack(
-    arr: list[Array],
-    **kwargs
-        ) -> Array:
-    stacked = np.vstack(arr, **kwargs)
-    return stacked
 
 
 def norm(
@@ -412,13 +425,17 @@ def norm(
     return normValue
 
 
-def ravel(*arr: Array, **kwargs) -> (Array):
-    return np.ravel(*arr, **kwargs)
+def getMidPoint(
+    arr: Array
+        ) -> (float):
+
+    # Calcule the midpoint
+    midpoint = (arr.max() + arr.min())/2
+
+    return midpoint
 
 
-def hstack(*arr, **kwargs) -> (Array):
-    return np.hstack(*arr, **kwargs)
-
-
-def vstack(*arr, **kwargs) -> (Array):
-    return np.vstack(*arr, **kwargs)
+def flatten(
+    arr: Union[Array, list, tuple]
+        ) -> (Array):
+    return np.array(arr).flatten()

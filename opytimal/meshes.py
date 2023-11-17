@@ -2,12 +2,14 @@
 Module of the meshes proccessment methods
 '''
 
-__all__ = ['readXDMFMesh', 'getInnerNodes', 'getSubMeshes',
-           'getSubMeshesComplement', 'getCoordinates', 'getNormal'
-           'inBoundary', 'inInletOnly', 'inOutletOnly',
-           'getFiniteElementData', 'getBoundaryData']
+__all__ = ['readXDMFMesh', 'getInnerNodes', 'getSubMeshes', 'getNormal',
+           'getSubMeshesComplement', 'getCoordinates', 'inBoundary', 
+           'inInletOnly', 'inOutletOnly', 'getBoundaryDofs', 
+           'getFiniteElementData', 'getBoundaryData', 'localRefinement',
+           'getBoundaryDofsWithout']
 
 import os
+from collections import Counter
 
 import dolfin as df
 import numpy as np
@@ -138,7 +140,7 @@ def readXDMFMesh(
 def getInnerNodes(
     mesh: Mesh,
     bmesh: Mesh = None
-        ) -> Array:
+        ) -> (Array):
 
     if bmesh is None:
         # Get the respective boundary mesh
@@ -155,7 +157,7 @@ def getInnerNodes(
 def getSubMeshes(
     boundData: MeshFunction,
     boundMarks: dict[str: int]
-        ) -> dict[str: Mesh]:
+        ) -> (dict[str: Mesh]):
     # Init the submeshes map
     subMeshes = {}
 
@@ -165,6 +167,9 @@ def getSubMeshes(
         subMeshes[boundName] = df.MeshView.create(
             boundData, boundMark
             )
+
+        # Rename the mesh
+        subMeshes[boundName].rename(boundName, boundName)
 
     return subMeshes
 
@@ -311,7 +316,7 @@ def inOutletOnly(
     x: Array,
     boundaryMeshes: dict[str: df.Mesh],
     id: int = None
-        ) -> bool:
+        ) -> (bool):
     # Set the outlet boundary name
     outletName = 'outlet'\
         if id is None\
@@ -324,14 +329,71 @@ def inOutletOnly(
     return answer
 
 
-def getNormal(boundMesh: Mesh) -> Array:
-    # Get the first mesh cell
-    cell = next(df.cells(boundMesh))
+def getNormal(boundMesh: Mesh) -> (Array):
 
-    # Get the normalize
-    normal = cell.cell_normal().array()
+    # Init the normals storage
+    normals = []
+
+    # Looping in mesh cells
+    for cell in df.cells(boundMesh):
+        # Get the cell normal
+        normal = cell.cell_normal().array().tolist()
+
+        # Convert to tuple and append to normals list
+        normals.append(tuple(normal))
+
+    # Count the normals
+    normalsAmount = Counter(normals)
+
+    # Get the normal that most appears
+    normal = sorted(
+        normalsAmount.items(),
+        key=lambda x: x[1]
+    )[-1][0]
 
     return normal
+
+
+def getBoundaryDofs(
+    S: df.FunctionSpace,
+    boundData: MeshFunction,
+    mark: int
+        ) -> (list[int]):
+
+    # Set a test value
+    testValue = df.Function(S)
+
+    # Get the respective dofs
+    dofs = df.DirichletBC(
+        S, testValue, boundData, mark
+        ).get_boundary_values().keys()
+
+    return dofs
+
+
+def getBoundaryDofsWithout(
+    S: df.FunctionSpace,
+    boundData: MeshFunction,
+    mark: int
+        ) -> (list[int]):
+
+    # Get the all boundary marks
+    marks = set(boundData.array())
+
+    # Remove the chosed mark
+    marks -= {mark}
+
+    # Init a dofs list
+    dofs = []
+
+    # Looping in left marks
+    for m in marks:
+        # Get the respective dofs
+        dofs.extend(
+            getBoundaryDofs(S, boundData, m)
+            )
+
+    return dofs
 
 
 def getBoundaryData(
@@ -344,15 +406,12 @@ def getBoundaryData(
     # Init the dofs dict
     boundDofs = {}
 
-    # Set a test value
-    testValue = df.Function(S)
-
     # Looping in pair (name, mark)
     for bound, mark in boundMarks.items():
         # Calcule the inlet's dofs
-        dofs = df.DirichletBC(
-            S, testValue, boundData, mark
-            ).get_boundary_values().keys()
+        dofs = getBoundaryDofs(
+            S, boundData, mark
+            )
 
         # Store the respective dof
         boundDofs[bound] = len(dofs)
@@ -441,3 +500,35 @@ def scalarFunction(
     F.vector()[:] = scalar
 
     return F
+
+
+def localRefinement(
+    mesh: df.Mesh,
+    point: Union[tuple[float], df.Point],
+    radius: float = 1.,
+    levels: int = 1
+        ) -> (None):
+    # Looping in refinement levels
+    for i in range(0, levels):
+        # Create a cell boolean marker
+        cell_marker = MeshFunction("bool", mesh, mesh.topology().dim())
+
+        # Looping in mesh cells
+        for cell in df.cells(mesh):
+            # Set respective cell mark as False
+            cell_marker[cell] = False
+
+            # Get the cell midpoint
+            p = cell.midpoint()
+
+            # Verify the distance between midpoint and
+            # local point chosen
+            if p.distance(point) < radius:
+                # Set respective cell mark as True
+                cell_marker[cell] = True
+
+        # Refine the mesh locally considering only the cells marked
+        # with True
+        mesh = df.refine(mesh, cell_marker)
+
+    return None

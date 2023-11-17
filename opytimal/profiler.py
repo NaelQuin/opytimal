@@ -23,7 +23,7 @@ class ProgressBar:
         total: float = None,
         formatter: str = None,
         suffix: str = ''
-            ) -> None:
+            ) -> (None):
 
         self.msg = msg
         self.label = label
@@ -64,7 +64,7 @@ class ProgressBar:
 def tic(
     globals=globals(),
     id: str = None
-        ) -> None:
+        ) -> (None):
     'Start a timer'
 
     # Adjust id

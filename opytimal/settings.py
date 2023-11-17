@@ -9,6 +9,9 @@ import dolfin as df
 
 df.set_log_active(False)
 
+# Threads store
+THREADS = []
+
 # Quadrature degree
 QUADRATURE_DEG = 5
 

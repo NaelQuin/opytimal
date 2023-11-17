@@ -8,11 +8,13 @@ __all__ = ['setColorbar', 'sca', 'subplot', 'plotComparison',
 import time
 import tkinter as tk
 
+import matplotlib
+import easygui
+import tikzplotlib
+import matplotlib.pyplot as plt
 import dolfin as df
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
-import easygui
+from matplotlib import font_manager
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 from matplotlib.animation import FuncAnimation, FFMpegWriter
@@ -22,26 +24,30 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from .parallel import parallel
 from .types import (Union, Tuple, Any, Function, Axe, HostAxes, Colorbar,
-                    Figure, Plot, Array, Color, Collection)
+                    Figure, Plot, Array, Color, Collection, Mesh)
 from .string import generateId, showProgress
 from .numeric import ceil
 from .tests import testLoop
-from .arrays import splitSlice, zeros, removeEmpty, array
+from .arrays import splitSlice, zeros, removeEmpty, array, getMidPoint
+from .files import dirname, basename
+from .modules import isInstalled
+
+SET_AXES_ASPECT = False
 
 try:
     matplotlib.use('TkAgg')
 except Exception:
     matplotlib.use('WebAgg')
 
-def is3d(ax: Axe) -> bool:
+def is3d(ax: Axe) -> (bool):
     return '3D' in type(ax).__name__
 
 
 def colorbarPositioner(
     ax: Axe,
     size: float = 1,
-    position: str = 'center right'
-        ) -> HostAxes:
+    position: str = 'lower right'
+        ) -> (HostAxes):
 
     # Adjust colorbar size and positioning him
     if not is3d(ax):
@@ -60,15 +66,27 @@ def colorbarPositioner(
             )
 
     else:
+        # Fix positions wrong to 3D axes
+        positionsConverter = {
+            'bottom': 'lower center',
+            'top': 'upper center',
+        }
+
+        # Fix the position
+        position = positionsConverter.get(position, position)
+
         cax = inset_axes(
             ax,
             width="5%",
-            height="70%",
+            height="50%",
             loc=position,
             bbox_to_anchor=(0.125, 0.04, 1, 1),
             bbox_transform=ax.transAxes,
             borderpad=-2,
             )
+
+    # Set colorbar axe label
+    cax.set_label('<colorbar>')
 
     return cax
 
@@ -137,7 +155,7 @@ def getCollections(
     *axes: Axe,
     withoutEmpty: bool = False,
     turn2row: bool = True
-        ) -> list[Plot]:
+        ) -> (list[Plot]):
     # Init a collections list
     collections = []
 
@@ -161,7 +179,7 @@ def normalizeColors(
     *collections: Collection,
     vlim: Tuple[float, float],
     clip: bool = True
-        ) -> None:
+        ) -> (None):
 
     if type(collections[0]) is Figure:
         # Get all figures axes
@@ -193,11 +211,11 @@ def setColorbar(
     label: str = None,
     scale: float = 1,
     tickfont: int = 10,
-    position: str = 'right',
+    position: str = 'bottom',
     cmap: Color = matplotlib.cm.viridis,
     vlim: Tuple[float, float] = None,
-    formatter: Union[str, Function] = '{x:1.02}',
-        ) -> Colorbar:
+    formatter: Union[str, Function] = '{x:1.02e}',
+        ) -> (Colorbar):
 
     # Get all figure axes colored collections
     coloredCollections = getColoredCollections(
@@ -230,9 +248,7 @@ def setColorbar(
         location = 'right'
 
     # Set the colorbar positioner
-    cax = colorbarPositioner(ax, scale, position)\
-        if 'left' in position or 'right' in position\
-        else None
+    cax = colorbarPositioner(ax, scale, position)
 
     # Plot the colorbar
     cbar = ax.figure.colorbar(
@@ -241,7 +257,7 @@ def setColorbar(
             cmap=cmap
             ),
         ax=ax, cax=cax, location=location,
-        ticks=np.around(np.linspace(*vlim, 6), 1)
+        ticks=np.linspace(*vlim, 6)
             if vRange is not None
             else None
         )
@@ -294,8 +310,8 @@ def subplot(
     sharey: bool = True,
     label: str = None,
     projection: str = None,
-    triDim: bool = False
-        ) -> Tuple[plt.Figure, plt.Axes]:
+    triDim: bool = False,
+        ) -> (Tuple[plt.Figure, plt.Axes]):
     'Generate a figure subplot'
 
     if type(projection) is not list:
@@ -363,7 +379,10 @@ def simulation(
     color: list[str] = None,
     show: bool = True,
     strides: int = None,
-    normalize: bool = False
+    normalize: bool = False,
+    mesh: Mesh = None,
+    position: str = 'right',
+    setAxesAspectRatio: bool = True,
         ) -> (Figure):
     '''Plot the respective graphical'''
 
@@ -384,11 +403,15 @@ def simulation(
         } if personalPlot or not projection3D\
           else {}
 
+    if mesh is None:
+        # Set the plot mesh
+        mesh = func.function_space().mesh()
+
     # Get the geometric dimension
-    gdim = func.geometric_dimension()
+    tdim = mesh.topology().dim()
 
     # Adjust plot kwargs if quiver
-    if any(func.value_shape()) or gdim == 3:
+    if any(func.value_shape()) or tdim == 3:
         # Remove specific kwargs
         plotKwargs.pop('ms', None)
         plotKwargs.pop('markevery', None)
@@ -407,7 +430,8 @@ def simulation(
 
     # Plot the exact solution
     funcPlot = plot(
-        func, dolfin=not personalPlot, **plotKwargs, strides=strides
+        func, dolfin=not personalPlot, mesh=mesh,
+        **plotKwargs, strides=strides,
         )
 
     # Get values limits
@@ -416,18 +440,17 @@ def simulation(
 
     if any(plt.gca().collections) and not personalPlot:
         # Put colorbar
-        # cax = colorbarPositioner(ax, 0.05, 'right')
-        # plt.colorbar(funcPlot, cax=cax, ax=ax)
-        setColorbar(plt.gca(), scale=0.05, vlim=vlim)
+        setColorbar(plt.gca(), scale=0.05, vlim=vlim,
+                    label=func.name(), position=position)
 
-    elif personalPlot and gdim < 3:
+    elif personalPlot and tdim < 3:
         # Put legend in axes
         plt.legend(loc='best')
 
-    elif gdim == 3:
+    elif tdim == 3:
         # Put colorbar in axes
-        setColorbar(ax, scale=0.05, position='bottom',
-                    label=getLabel(ax), vlim=vlim)
+        setColorbar(ax, scale=0.05, position=position,
+                    label=func.name(), vlim=vlim)
 
     else:
         # Show the plot legend in the bestest local
@@ -454,6 +477,10 @@ def simulation(
         # Show plot
         plt.show()
 
+    if setAxesAspectRatio:
+        # Set the figure's axes aspect ratio
+        setFigAxesAspectRatio(fig)
+
     return fig
 
 
@@ -470,9 +497,26 @@ def plotComparison(
     show: bool = True,
     personalPlot: bool = False,
     strides: int = None,
-    normalize: bool = False
+    normalize: bool = False,
+    mesh: Mesh = None,
+    position: str = 'right',
+    setAxesAspectRatio: bool = False,
         ) -> (Figure):
     '''Plot the comparison graphical'''
+
+    if personalPlot:
+        # Handling new argument
+        scatters = personalPlot
+
+    # if mesh is not None:
+    #     # Adjust the projection 3D parameter
+    #     projection3D = (
+    #         mesh.topology().dim() > 1
+    #             and not any(exact.value_shape())
+    #             and personalPlot
+    #         or mesh.topology().dim() > 2
+    #             and any(exact.value_shape())
+    #     )
 
     if numerical is None:
         # Plot only one function
@@ -485,31 +529,31 @@ def plotComparison(
             colors[0] if colors is not None else None,
             show,
             strides,
-            normalize
+            normalize,
+            mesh,
+            position,
+            setAxesAspectRatio
             )
 
         return fig
-
-    if personalPlot:
-        # Handling new argument
-        scatters = personalPlot
 
     # Set the keyword args to plot
     plotKwargs = {
         'common': {
             'lw': 3,
-            'ms': 18,
-            'markevery': markevery
+            'ms': 60 if mesh is not None and mesh.topology().dim() > 1 else 15,
+            #'markevery': markevery
             },
         'exact': {
             'ls': '',
-            'marker': 'o',
+            'marker': '.',
+            # 'markeredgecolor': 'k',
             'label': exact.name()
             },
         'numerical': {
             'ls': '',
-            'marker': '*',
-            'markeredgecolor': 'k',
+            'marker': '+',
+            # 'markeredgecolor': 'k',
             'label': numerical.name()
             },
         } if scatters or not projection3D\
@@ -519,14 +563,17 @@ def plotComparison(
     adjustPlotSettings(plotKwargs, markerSizes=markerSizes, colors=colors)
 
     # Get the geometric dimension
-    gdim = numerical.geometric_dimension()
+    tdim = numerical.function_space().mesh().topology().dim()\
+        if mesh is None\
+        else mesh.topology().dim()
 
     # Adjust plot kwargs if quiver
-    if any(numerical.value_shape()) or gdim == 3:
+    if any(numerical.value_shape()) or tdim == 3:
         # Remove specific kwargs
         plotKwargs['common'].pop('ms', None)
         plotKwargs['common'].pop('markevery', None)
         plotKwargs['exact'].pop('marker', None)
+        plotKwargs['exact'].pop('markeredgecolor', None)
         plotKwargs['numerical'].pop('marker', None)
         plotKwargs['numerical'].pop('markeredgecolor', None)
 
@@ -557,7 +604,7 @@ def plotComparison(
     # Plot the exact solution
     exactPlot = plot(
         exact, dolfin=not scatters, **plotKwargs['common'],
-        **plotKwargs['exact'], strides=strides
+        **plotKwargs['exact'], strides=strides, mesh=mesh
         )
 
     if splitSols:
@@ -567,7 +614,7 @@ def plotComparison(
         if any(plt.gca().collections) and not scatters:
             # Put colorbar
             setColorbar(plt.gca(), label=exact.name(), scale=0.05,
-                        vlim=vlim)
+                        vlim=vlim, position=position)
 
         # Set the second axe as the current
         sca(figLabel, 1)
@@ -575,32 +622,30 @@ def plotComparison(
     # Plot the numerical solution
     numericalPlot = plot(
         numerical, dolfin=not scatters, **plotKwargs['common'],
-        **plotKwargs['numerical'], strides=strides
+        **plotKwargs['numerical'], strides=strides, mesh=mesh
         )
 
     # Get the values limits
-    vlim = (numerical.vector().min(), numerical.vector().max())
-
-    # Get geometric dimension of the numerical solution
-    gdim = numerical.geometric_dimension()
+    vlim = (numerical.vector().min(),
+            numerical.vector().max())
 
     if splitSols and any(plt.gca().collections) and not scatters:
         # Put colorbar
         setColorbar(plt.gca(), label=numerical.name(), scale=0.05,
-                    vlim=vlim)
+                    vlim=vlim, position=position)
 
     elif any(plt.gca().collections) and not scatters:
         # Put colorbar
-        setColorbar(plt.gca(), scale=0.05, vlim=vlim)
+        setColorbar(plt.gca(), scale=0.05, vlim=vlim, position=position)
 
-    elif scatters and gdim < 3:
+    elif scatters and tdim < 3:
         # Put legend in axes
         [(plt.sca(ax), plt.legend(loc='best')) for ax in plt.gcf().axes]
 
-    elif gdim == 3:
+    elif tdim == 3:
         # Put colorbar in axes
-        [setColorbar(ax, scale=0.05, position='bottom',
-                     label=getLabel(ax))
+        [setColorbar(ax, scale=0.05, position='center right',
+                     label=getLabel(ax), vlim=vlim)
             for ax in plt.gcf().axes]
 
     else:
@@ -614,7 +659,7 @@ def plotComparison(
         # Get the color limits
         vlim = getColorLimits(coloredCollections)
 
-        if vmin is not None and vmax is not None:
+        if vlim is not None:
             # Normalize the colors
             normalizeColors(*coloredCollections, vlim=vlim)
 
@@ -629,7 +674,7 @@ def plotComparison(
         addCheckButtons(
             fig,
             [exactPlot, numericalPlot]
-                if gdim > 1 or any(numerical.value_shape())
+                if tdim > 1 or any(numerical.value_shape())
                 else [exactPlot[0], numericalPlot[0]],
             show=show
             )
@@ -638,18 +683,26 @@ def plotComparison(
         # Show plot
         plt.show()
 
+    if setAxesAspectRatio:
+        # Set the figure's axes aspect ratio
+        setFigAxesAspectRatio(fig)
+
     return fig
 
 
-def colorbarAmount(fig: Figure) -> int:
+def colorbarAmount(
+    fig: Figure
+        ) -> (int):
     return len([1 for ax in fig.axes if ax.get_label() == '<colorbar>'])
 
 
 def plotMesh(
     *nodes: Array,
     labels: list[str],
-    projection3D: bool = False
-        ) -> None:
+    projection3D: bool = False,
+    normals: dict[str:Array] = None,
+    setAxesAspectRatio: bool = SET_AXES_ASPECT
+        ) -> (None):
 
     # Create the figure and axe
     fig = plt.figure('Mesh')
@@ -657,20 +710,34 @@ def plotMesh(
         if projection3D\
         else fig.add_subplot()
 
-    # Make the plots
-    scatters = [
-        ax.scatter(*node, label=label)
-            for node, label in zip(nodes, labels)
-        ]
+    # Init the plots list
+    plots = []
 
-    # Set the axe aspect
-    ax.set_box_aspect(getBestAspect(ax))
+    # Looping in pair (nodes, label)
+    for node, label in zip(nodes, labels):
+        # Plot the mesh nodes and append to list
+        plots.append(
+            ax.scatter(*node, label=label)
+        )
+
+        if normals is not None and label in normals:
+            # Get the mesh center node
+            centerNode = getCenterNode(node.T)
+
+            # Plot the normal vectors in mesh center
+            plots.append(
+                ax.quiver(*centerNode, *normals[label], label=f'n_{label[0]}')
+            )
+
+    if setAxesAspectRatio:
+        # Set the axe aspect
+        ax.set_box_aspect(getBestAspect(ax))
 
     # Automatic figure adjust
     fig.tight_layout()
 
     # Add check buttons
-    addCheckButtons(fig, scatters, show=True)
+    addCheckButtons(fig, plots, show=True)
 
     return None
 
@@ -679,7 +746,7 @@ def addCheckButtons(
     fig: plt.Figure,
     lines: list[Any] = None,
     show: bool = True
-        ) -> None:
+        ) -> (None):
 
     if lines is None:
         lines = []
@@ -699,13 +766,42 @@ def addCheckButtons(
 
     check.on_clicked(func)
 
+    # Positioning the check button axe
+    positioningAxe(check.ax)
+
     if show:
         plt.show()
 
     return None
 
 
-def getBestAspect(ax: Figure) -> Union[float, tuple[int]]:
+def positioningAxe(
+    ax: Axe,
+    x: float = None,
+    y: float = None
+        ) -> (None):
+
+    return None
+
+    if x is None:
+        x = "?"
+
+    # Positioning the checkbutton axe
+    pos = ax.get_position()
+    posXRange = pos.x1 - pos.x0
+    posYRange = pos.y1 - pos.y0
+    pos.x0 = fig.axes[0].get_xlim()[0]
+    pos.x1 = pos.x0 + posXRange
+    pos.y0 = fig.axes[0].get_ylim()[0]
+    pos.y1 = pos.y0 + posYRange
+    check.ax.set_position(pos)
+
+    return None
+
+
+def getBestAspect(
+    ax: Figure
+        ) -> (Union[float, tuple[int]]):
     'Set the aspect-ratio to the axe'
 
     # Get the axe's axis limits
@@ -732,15 +828,24 @@ def plot(
     *args,
     dolfin: bool = True,
     strides: int = None,
+    mesh: Mesh = None,
+    setAxesAspectRatio: bool = SET_AXES_ASPECT,
     **kwargs
-        ) -> Plot:
+        ) -> (Plot):
     'Plot a graph with matplotlib module'
 
     global KWARGS_COPY
 
     if dolfin:
+        # if any(args[0].value_shape()):
+        #     # Add border to arrows
+        #     kwargs['edgecolor'] = 'k'
+
         # Make plot from dolfin module
-        p = df.plot(*args, **kwargs)
+        p = df.plot(*args, **kwargs, mesh=mesh)
+
+        # if mesh is not None:
+        #     df.plot(mesh, lw=0.3)
 
         # Get the respective axe
         ax = p.axes\
@@ -756,45 +861,98 @@ def plot(
 
         # Init any lists
         vector = []
+        tdim = []
         gdim = []
         coord = []
         coordStrides = []
         values = []
         valuesStrides = []
 
+        # Set default value
+        dRange = 0
+
         # Looping in args
         for arg in args:
             # Verify if function is a vector
             vector.append(any(arg.value_shape()))
 
+            # Get the function mesh
+            _mesh = arg.function_space().mesh()\
+                if mesh is None\
+                else mesh
+
+            # Get the topological dimensions
+            _tdim = _mesh.topology().dim()\
+                if mesh is None\
+                else mesh.topology().dim()
+            tdim.append(_tdim)
+
             # Get the geometric dimensions
-            gdim.append(arg.geometric_dimension())
+            _gdim = _mesh.geometric_dimension()\
+                if mesh is None\
+                else mesh.geometric_dimension()
+            gdim.append(_gdim)
 
             # Get the mesh coordinates from args
             coord.append(
-                [c for c in arg.function_space().mesh().coordinates().T]
+                [c for c in _mesh.coordinates().T]
                 )
 
             # Turn args to array
-            values.append(
-                arg.compute_vertex_values()
-                    if not any(arg.value_shape())
-                    else [argi.compute_vertex_values()
-                            for argi in arg.split()]
-                )
+            if mesh is None:
+                values.append(
+                    arg.compute_vertex_values()
+                        if not any(arg.value_shape())
+                        else [argi.compute_vertex_values()
+                                for argi in arg.split()]
+                    )
+            else:
+                if _tdim < _gdim:
+                    # Consider only the topology coordinates
+                    coord = [c[1:] for c in coord]
+                    if _tdim == 1:
+                        coord = [coord]
+                _arg = df.project(arg, mesh=mesh)
+                values.append(
+                    _arg.compute_vertex_values()
+                        if not any(_arg.value_shape())
+                        else [argi.compute_vertex_values()
+                                for argi in _arg.split()]
+                    )
+                if _tdim < _gdim and not vector[-1]:
+                    dRange = max(
+                        dRange, abs(values[-1].max() - values[-1].min())
+                        )
+
+                    if dRange < 1e-5:
+                        # Set the yaxis margin
+                        dy = 1/(10*dRange)
+                        if _tdim == 1:
+                            ax.set_ylim((dRange*(1 - dy), dRange*(1 + dy)))
+                        elif _tdim == 2:
+                            # ax.set_xticklabels(
+                            #     [#f'{values[-1].max()-2*dy:1.02e}',
+                            #      f'{values[-1].max()+:1.02e}',
+                            #      #f'{values[-1].max()+2*dy:1.02e}']
+                            #     ]
+                            # )
+                            ax.set_xlim((dRange*(1 - 2*dy), dRange*(1 + 2*dy)))
 
             if strides != slice(None):
-                # Get the mesh coordinates with strides
-                coordStrides.append(
-                    [c[strides] for c in coord[-1]]
-                    )
+                for _coord in coord:
+                    __coord = []
+                    for c in _coord:
+                        __coord.append(c[strides])
+                    # Get the mesh coordinates with strides
+                    coordStrides.append(__coord)
 
-                # Get args array with strides
-                valuesStrides.append(
-                    values[-1][strides]
-                        if not any(arg.value_shape())
-                        else [value[strides]
-                                for value in values[-1]]
+                for _values in values:
+                    # Get args array with strides
+                    valuesStrides.append(
+                        _values[strides]
+                            if not any(arg.value_shape())
+                            else [v[strides]
+                                    for v in _values]
                     )
 
         if strides == slice(None):
@@ -814,24 +972,25 @@ def plot(
         # Looping in args
         for i, value in enumerate(valuesStrides):
 
-            if gdim[i] == 3 and not vector[i]:
+            if tdim[i] == 3 and not vector[i]:
                 # Plot the scatters
                 p = ax.scatter(*coordStrides[i], **kwargs)
 
                 # Set the scatter's color
                 p.set_array(value)
 
-            elif gdim[i] != 3 and vector[i]:
+            elif tdim[i] != 3 and vector[i]:
                 # Remove the 's' keyword
                 kwargs.pop('s', None)
 
                 # Plot the velocity field
                 p = ax.quiver(*coordStrides[i], *value, **kwargs)
+                
 
                 # Set the arrow's color
                 p.set_array((array(value)**2).sum(axis=0)**0.5)
 
-            elif gdim[i] == 3 and vector[i]:
+            elif tdim[i] == 3 and vector[i]:
                 # Remove the 's' keyword
                 kwargs.pop('s', None)
 
@@ -868,13 +1027,14 @@ def plot(
                     linewidth=1, linestyle='-', arrow_length_ratio=0.75,
                     )
 
-                # Set the axis labels
-                ax.set_xlabel('$x$')
-                ax.set_ylabel('$y$', rotation='horizontal')
-                ax.set_zlabel('$z$', rotation='horizontal')
+                # # Set the axis labels
+                # ax.set_xlabel('$x$')
+                # ax.set_ylabel('$y$', rotation='horizontal')
+                # ax.set_zlabel('$z$', rotation='horizontal')
 
-                # Set the axe box aspect
-                ax.set_box_aspect(getBestAspect(ax))
+                if setAxesAspectRatio:
+                    # Set the axe box aspect
+                    ax.set_box_aspect(getBestAspect(ax))
 
                 if not any(fig.axes[-1].collections):
                     # Plot the magnitude dots
@@ -886,10 +1046,11 @@ def plot(
                     # Colorize the norm
                     p.set_array(norm)
 
-                    # Set the axe box aspect
-                    fig.axes[-1].set_box_aspect(
-                        getBestAspect(fig.axes[-1])
-                        )
+                    if setAxesAspectRatio:
+                        # Set the axe box aspect
+                        fig.axes[-1].set_box_aspect(
+                            getBestAspect(fig.axes[-1])
+                            )
 
                 # Enable some event handlings
                 connectAxesMovements(fig)
@@ -899,11 +1060,33 @@ def plot(
                 # testLoop(globals(), locals())
 
             else:
-                # Plot the scatters
-                p = ax.scatter(*coordStrides[i], value, **kwargs)
 
-    # Set the axe aspect
-    ax.set_box_aspect(getBestAspect(ax))
+                try:
+                    # Plot the scatters
+                    p = ax.scatter(value, *coordStrides[i], **kwargs)\
+                        if tdim[i] == 2 and gdim[i] == 3\
+                        else ax.scatter(*coordStrides[i], value, **kwargs)
+                except AttributeError:
+                    if 'ms' in kwargs:
+                        kwargs.pop('ms')
+                    if 'markerfacecolor' in kwargs:
+                        kwargs.pop('markerfacecolor')
+                    if 'markersize' in kwargs:
+                        kwargs.pop('markersize')
+                    if 'markevery' in kwargs:
+                        kwargs.pop('markevery')
+                    #p = ax.scatter(value, *coordStrides[i], **kwargs)
+                    p = ax.scatter(*coordStrides[i], value, **kwargs)
+
+    # Set the axis labels
+    ax.set_xlabel('$x$', labelpad=10)
+    ax.set_ylabel('$y$', rotation='horizontal')
+    if hasattr(ax, 'set_zlabel'):
+        ax.set_zlabel('$z$', rotation='horizontal')
+
+    if setAxesAspectRatio:
+        # Set the axe aspect
+        ax.set_box_aspect(getBestAspect(ax))
 
     return p
 
@@ -1028,14 +1211,14 @@ def _dynamicPlot(*sols, titles: str = None,
     mesh = sols[0][n:=0].function_space().mesh()
 
     # Get mesh domain dimension
-    gdim = mesh.geometric_dimension()
+    tdim = mesh.topology().dim()
 
-    if gdim < 3 and not multipleViews:
+    if tdim < 3 and not multipleViews:
         # Set a generator to each follow plot properties
         colors = (c for c in ['tab:blue', 'tab:orange', 'tab:green'])
         alphas = (a for a in np.linspace(0.5, 1, 3))
 
-    elif gdim < 3 and multipleViews:
+    elif tdim < 3 and multipleViews:
         # Set a generator to each follow plot properties
         colors = [
             (c for c in ['tab:blue', 'tab:orange', 'tab:green'])
@@ -1046,7 +1229,7 @@ def _dynamicPlot(*sols, titles: str = None,
                 for _ in range(3)
             ]
 
-    elif gdim == 3 and multipleViews:
+    elif tdim == 3 and multipleViews:
         # Set default values
         colors = alphas = [None, None, None]
 
@@ -1059,11 +1242,11 @@ def _dynamicPlot(*sols, titles: str = None,
 
     # Generate the axe(s)
     axes = generateSubplots(
-        fig, gdim, multipleViews,
+        fig, tdim, multipleViews,
         splitSols=len(sols)*splitSols
         )
 
-    if gdim > 1:
+    if tdim > 1:
         # Linking the axes movements
         connectAxesMovements(fig)
 
@@ -1081,7 +1264,7 @@ def _dynamicPlot(*sols, titles: str = None,
         'upper center': (0.425, 0.95, 0.95),
         'upper right': (0.8, 0.95, 0.95),
         'lower center': (0.425, -0.02, 0.95),
-        }[suptitlePos][:gdim+1]
+        }[suptitlePos][:tdim+1]
 
     if suptitles is not None:
         # Set a text
@@ -1092,7 +1275,7 @@ def _dynamicPlot(*sols, titles: str = None,
     X = mesh.coordinates()
 
     # Split coordinates to each axis
-    X = [X[:, i] for i in range(gdim)]
+    X = [X[:, i] for i in range(tdim)]
 
     # Init lines
     lines = []\
@@ -1111,7 +1294,7 @@ def _dynamicPlot(*sols, titles: str = None,
             'marker': marker[k]
             }
 
-        if gdim == 1:
+        if tdim == 1:
             # Add others mark arguments
             kwargs['markevery'] = markevery
             kwargs['markersize'] = markersizes[k]\
@@ -1247,7 +1430,7 @@ def _dynamicPlot(*sols, titles: str = None,
         setter(
             plot, data,
             mesh.coordinates()
-                if gdim == 2
+                if tdim == 2
                 else slice(None)
             )
 
@@ -1351,7 +1534,7 @@ def _dynamicPlot(*sols, titles: str = None,
     ani.fps = fps
     ani.wait = True
 
-    if gdim < 3:
+    if tdim < 3:
         # Get the vertical limits from all solutions given
         maxs = []
         mins = []
@@ -1373,7 +1556,7 @@ def _dynamicPlot(*sols, titles: str = None,
             1: 'upper right',
             2: 'upper center',
             3: 'upper center'
-            }[gdim]
+            }[tdim]
 
         # Set the correspondently axes parameters
         if multipleViews:
@@ -1385,7 +1568,7 @@ def _dynamicPlot(*sols, titles: str = None,
 
         # Put legends/colorbars
         putLegends(
-            fig, colorbar=(gdim == 3),
+            fig, colorbar=(tdim == 3),
             axMainId=0 if multipleViews or splitSols else None,
             position=position, axes=_axes
             )
@@ -1474,7 +1657,8 @@ def adjustFiguresInScreen(
     subplots: bool = False,
     fullscreen: bool = False,
     dx: float = 1e-2,
-    dy: float = 5e-2
+    dy: float = 5e-2,
+    pad: int = 1
         ) -> (None):
     'Positioning matplotlib figures in respective monitor screen'
 
@@ -1538,7 +1722,7 @@ def adjustFiguresInScreen(
         fig.canvas.draw()
 
         # Adjust the figures
-        fig.tight_layout()
+        fig.tight_layout(pad=pad)
 
     # Add close all button
     #addMyButtons(*figures, onlyClose=True)
@@ -2493,7 +2677,7 @@ def makePlot(ax: Axe, X, sol, alphas, colors, **kwargs) -> Plot:
 
 def generateSubplots(
     fig: Figure,
-    gdim: int,
+    tdim: int,
     multipleViews: bool = False,
     splitSols: int = 1
         ) -> list[Axe]:
@@ -2502,10 +2686,10 @@ def generateSubplots(
         # Set a default value
         splitSols = 1
 
-    if not multipleViews or gdim == 1:
+    if not multipleViews or tdim == 1:
         # Generate one axe
         axes = fig.add_subplot(label='Axe') \
-            if gdim == 1 \
+            if tdim == 1 \
             else (fig.add_subplot(projection='3d', label='Axe')
                     if splitSols == 1
                     else [fig.add_subplot(
@@ -2579,8 +2763,91 @@ def figure(label: str = None, **kwargs):
     return plt.figure(label, **kwargs)
 
 
-def show():
-    return plt.show()
+def imageTypes() -> (list[str]):
+    return ['png', 'jpeg', 'jpg', 'eps']
+
+
+def show(
+    output: str = None,
+    type: str = 'png',
+    dpi: int = 150,
+    grid: bool = True,
+    label: str = '',
+    props: dict[str:Any] = None
+        ) -> (None):
+
+    # Looping in figures number
+    for figNum in plt.get_fignums():
+        # Get the figure axes
+        axes = plt.figure(figNum).axes
+
+        if grid:
+            # Add grid to respective axes
+            addGrid(axes)
+
+        if props is not None:
+            # Update the axes props
+            updateAxProps(*axes, **props)
+
+    if output is None:
+        return plt.show()
+
+    # Join the output and extension append a string formatter
+    # to consider the fignums
+    outputName = '_%02d.'.join([output, type])
+
+    if any(label):
+        # Add label to output filename
+        outputName = outputName.replace('_', f'_{label}_')
+
+    if type in imageTypes():
+        # Get the figures amount
+        figAmount = len(plt.get_fignums())
+
+        # Looping in all created figures
+        for figNum in plt.get_fignums():
+            # Get the respective figure
+            fig = plt.figure(figNum, dpi=dpi)
+
+            # Save the figure
+            plt.savefig(outputName % figNum)
+
+            # Rotate axes to YZ plan view
+            rotations = [ax.view_init(0, 0) for ax in fig.axes if is3d(ax)]
+
+            if any(rotations):
+                # Save the figure with rotated axes
+                plt.savefig(outputName % (figNum+figAmount))
+
+        # Set the output name format
+        outputName = outputName.replace('%02d', '*')
+
+        # Print the figure savement
+        print(
+            '\Figure {} saved on {}'.format(
+            basename(outputName),
+            dirname(outputName)
+            )
+        )
+
+    elif type == 'tex' and isInstalled(tikzplotlib):
+        # Save the tikz tex files
+        [(plt.figure(figNum),
+          tikzplotlib.save(outputName % figNum))
+            for figNum in plt.get_fignums()]
+
+        # Set the output name format
+        outputName = outputName.replace('%02d', '*')
+
+        # Print the tex generation
+        print(
+            '\nTex file {} generated on {}'.format(
+            basename(outputName),
+            dirname(outputName)
+            )
+        )
+
+    return None
 
 
 def enableFocalMode(*figs):
@@ -2677,16 +2944,21 @@ def connectAxesMovements(*figs):
     return None
 
 
-def title(msg: str, fig: Figure = None):
+def title(
+    msg: str,
+    fig: Figure = None
+        ) -> (None):
 
     plt.title(msg)\
         if fig is None\
-        else fig.title(msg)
+        else fig.suptitle(msg)
 
     return None
 
 
-def getColorValues(col: Collection) -> Array:
+def getColorValues(
+    col: Collection
+        ) -> (Array):
 
     if hasattr(col, 'cvalues'):
         cValues = col.cvalues()
@@ -2698,7 +2970,9 @@ def getColorValues(col: Collection) -> Array:
     return cValues
 
 
-def getLabel(ax: Axe) -> str:
+def getLabel(
+    ax: Axe
+        ) -> (str):
 
     if any(ax.collections):
         label = ax.collections[0].get_label()
@@ -2708,3 +2982,242 @@ def getLabel(ax: Axe) -> str:
         label = None
 
     return label
+
+
+def getCenterNode(
+    nodes: Union[Array, list]
+        ) -> (list):
+
+    if type(nodes) is not Array:
+        # Turn to array
+        nodes = array(nodes)
+
+    # Get the midpoint in each column
+    center = [
+        getMidPoint(nodes[:, i])
+            for i in range(nodes.shape[1])
+    ]
+
+    return center
+
+
+def setPltStyle(style: str) -> (None):
+    return plt.style.use(style)
+
+
+def settingColorbar(
+    cbar: Colorbar,
+    position: str = 'bottom',
+    scale: float = 1,
+    tickfont: int = 10,
+    label: str = None,
+    cmap: Color = matplotlib.cm.viridis,
+    formatter: Union[str, Function] = '{x:1.04e}',
+        ) -> (None):
+
+    # Get cbar axe
+    ax = cbar.ax
+
+    testLoop(globals(), locals())
+
+    # Set the colorbar location
+    if 'upper' in position or position == 'top':
+        location = 'top'
+    elif 'lower' in position or position == 'bottom':
+        location = 'bottom'
+    elif 'left' in position:
+        location = 'left'
+    elif 'right' in position:
+        location = 'right'
+
+    # Set the colorbar positioner
+    cax = colorbarPositioner(ax, scale, position)\
+        if 'left' in position or 'right' in position\
+        else None
+
+    # Plot the colorbar
+    cbar = ax.figure.colorbar(
+        ScalarMappable(
+            norm=matplotlib.colors.Normalize(*vlim, clip=False),
+            cmap=cmap
+            ),
+        ax=ax, cax=cax, location=location,
+        ticks=np.linspace(*vlim, 6)
+            if vRange is not None
+            else None
+        )
+
+    # Adjust the font size of the colorbar
+    cbar.ax.tick_params(labelsize=tickfont)
+
+    if formatter is not None:
+        # Format the ticks labels
+        cbar.ax.yaxis.set_major_formatter(formatter)
+
+    # Set the colorbar label
+    cbar.set_label(
+        '$\mathbf{%s}$' % label.strip('$')
+            if label is not None
+            else ''
+        )
+
+    # Adjust the colorbar label
+    cbar.ax.set_ylabel(
+        cbar.ax.get_ylabel(),
+        rotation='horizontal',
+        labelpad=10
+        )
+
+    # Set the colorbar edge color
+    cbar.outline.set_edgecolor('black')
+
+    # Set the tick labels color
+    plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='black')
+
+    return None
+
+
+def addGrid(
+    fig_ax: Union[Figure, Axe],
+    x: bool = True,
+    y: bool = True
+        ) -> (None):
+
+    if type(fig_ax) is Figure:
+        # Get axes from figure
+        axes = fig_ax.axes
+
+    elif type(fig_ax) not in [list, tuple, Array]:
+        # Put axe in list
+        axes = [fig_ax]
+
+    else:
+        axes = fig_ax
+
+    # Set the grid props
+    props = {
+        'axis': 'both' if x and y
+                       else x*'x' + y*'y',
+        'linestyle': '-'
+    }
+
+    # Looping in respective figure axes
+    for ax in axes:
+        # Put grid on background
+        ax.grid(**props)
+
+    return None
+
+
+def updateAxProps(
+    *axes: Axe,
+    **props: dict[str: Any]
+        ) -> (None):
+
+    # Update the my personal properties
+    updateMyAxProps(*axes, **props)
+
+    # Remove props that don't apply to the axes
+    props = popNoProps(axes, **props)
+
+    # Looping in axes
+    for ax in axes:
+        # Update the proprieties in respective axe
+        ax.set(**props)
+
+    return None
+
+
+def popNoProps(
+    ax: Axe,
+    **props: dict[str: Any]
+        ) -> (dict[str: Any]):
+
+    # Get a props copy
+    newProps = props.copy()
+
+    # Looping in proprieties
+    for prop in props.keys():
+        # Verify if is a axe attribute
+        if not hasattr(ax, prop):
+            # Remove the propriety
+            newProps.pop(prop)
+
+    return newProps
+
+
+def updateMyAxProps(
+    *axes: Axe,
+    **props: dict[str: Any]
+        ) -> (None):
+
+    # Get the personal properties
+    ticksFont = props.get('ticksFont', None)
+    labelsFont = props.get('labelsFont', None)
+    noTitles = props.get('noTitles', None)
+    noColorbarLabel = props.get('noColorbarLabel', None)
+
+    # Looping in axes
+    for ax in axes:
+
+        if noColorbarLabel is not None and noColorbarLabel\
+                and any(ax.get_xlabel()) and not any(ax.get_ylabel()):
+            # Remove the colorbar label
+            ax.set_xlabel(None)
+
+        if noTitles is not None and noTitles:
+            # Remove the figure suptitle
+            ax.figure.suptitle(None)
+
+            # Remove the axe title
+            ax.set_title(None)
+
+        if ticksFont is not None:
+            # Set the ticks labels
+            ticksLabels = ax.get_xticklabels() + ax.get_yticklabels()
+
+            if hasattr(ax, 'get_zticklabels'):
+                ticksLabels += ax.get_zticklabels()
+
+            # Looping in ticks label
+            for label in ticksLabels:
+                # Set the ticks label font
+                label.set_fontproperties(
+                    font_manager.FontProperties(
+                        size=ticksFont
+                    )
+                )
+
+        if labelsFont is not None:
+            # Set the axis label font
+            ax.xaxis.label.set_size(labelsFont)
+            ax.yaxis.label.set_size(labelsFont)
+
+        # # Fit the figure layout
+        # ax.figure.tight_layout()
+
+    return None
+
+
+def setFigAxesAspectRatio(
+    *figs: Figure
+        ) -> (None):
+
+    # Check the args that are list
+    areList = filter(lambda i: hasattr(figs[i], 'len'), range(len(figs)))
+
+    if any(areList):
+        # Flat the args that are list
+        _figs = np.array(figs)[set(range(len(figs))) - set(areList)]
+        [_figs.extend(figs[i]) for i in areList]
+        figs = _figs
+
+    # Looping in figures
+    for fig in figs:
+        # Looping in figure's axes
+        for ax in fig.axes:
+            if 'colorbar' not in ax.get_label():
+                # Set the respective axe aspect ratio
+                ax.set_box_aspect(getBestAspect(ax))
+
+    return None

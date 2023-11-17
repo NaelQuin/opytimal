@@ -19,6 +19,7 @@ import numpy as np
 from termcolor import colored
 from ufl.algorithms.replace import replace as uflReplace
 
+from .tests import testLoop
 from .functions import getVars
 from .types import Any, Union, Tuple, Function, File
 
@@ -489,6 +490,10 @@ def showInfo(
     elif outputName is not None and 'outputTxt' in globals():
         # Get the opened external file to print
         output = globals()['outputTxt']
+
+    elif outputName is not None:
+        # Get the opened external file to print
+        output = outputName
 
     else:
         # Get default internal output

@@ -213,15 +213,9 @@ def mySolve(
     # Set the solver operators
     solver.set_operator(A)\
         if P is None or type(solver) is df.LUSolver\
-        else solver.set_operators(A, P)\
-
-    # Solve the matricial system
-    solver.solve(w.vector(), b)
+        else solver.set_operators(A, P)
 
     if runtime:
-        # Stop the timer
-        runtime = toc(printer=False, convert=True)
-
         # Get the solver label and split it
         solverLbl = solver.label().split('_')
 
@@ -240,6 +234,19 @@ def mySolve(
             f'DOFS: {convertInt(dofs)}' if dofs is not None else '',
             f'Linear Solver: {linearSolver}',
             f'Preconditioner: {preconditioner}',
+            alignment=':', delimiters=False, breakStart=False,
+            ignoreEmptyLines=True, copyTo=copyTo
+        )
+
+    # Solve the matricial system
+    solver.solve(w.vector(), b)
+
+    if runtime:
+        # Stop the timer
+        runtime = toc(printer=False, convert=True)
+
+        # Show the runtime
+        showInfo(
             f'Runtime: {runtime}',
             alignment=':', delimiters=False, breakStart=False,
             ignoreEmptyLines=True, copyTo=copyTo
@@ -1888,13 +1895,14 @@ def evaluateCost(
     a: dict[str: Tuple[df.Constant, df.Constant]],
     dm: dict[str: Measure],
     copyTo: File = None,
+    show: bool = False,
     **costData: dict[str: Any]
-    ) -> float:
+        ) -> (float):
 
     # Evaluate the Cost
     cost = J(Z, ud, controls, a, dm, evaluate=True)
 
-    if any(costData):
+    if show or copyTo is not None:
         # Get the control variables labels
         controlsLabel = controls.keys()
 
@@ -1908,8 +1916,18 @@ def evaluateCost(
             # Calcule the relative cost
             relativeCost = abs(cost - previousCost)/abs(cost)
 
+        # Set the print write file in kwargs
+        kwargs = {}
+        if copyTo is not None and not show:
+            kwargs['outputName'] = copyTo
+        elif copyTo is not None and show:
+            kwargs['copyTo'] = copyTo
+        elif not show:
+            # Set a buffer file
+            kwargs['outputName'] = open('./.buffer.txt', 'w')
+
         # Show the cost data
-        showInfo('Cost Data', copyTo=copyTo)
+        showInfo('Cost Data', **kwargs)
         showInfo(
             f'ks = {iters}' if iters is not None else '',
             f'{rho = :1.03e}' if rho is not None else '',
@@ -1924,7 +1942,7 @@ def evaluateCost(
                 if stopCriterion is not None
                 else '',
             alignment='=', breakStart=False, ignoreEmptyLines=True,
-            delimiters=False, tab=4, copyTo=copyTo
+            delimiters=False, tab=4, **kwargs
         )
 
     return cost
@@ -1951,7 +1969,7 @@ def formatTimeData(
     dt: Union[float, df.Constant],
     teta: Union[float, df.Constant],
     u0Expr: str = None
-        ) -> dict[str:str]:
+        ) -> (dict[str:str]):
     d = {
         f'nelt': nelt,
         f'Tf': f'{Tf:1.03e}',
