@@ -1,0 +1,89 @@
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Problem Title
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Optimal Poisson-based Problem on cylinder3
+
+▬▬▬▬▬▬▬▬▬▬▬▬
+Program Mode
+▬▬▬▬▬▬▬▬▬▬▬▬
+    validation
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Data
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+           Amount = 3 (D: 2, N: 1)
+       Inlet mode = Dirichlet
+     Dof in inlet = 645
+           outlet = 645
+             wall = 3040
+            marks = {'inlet': 1, 'outlet': 2, 'wall': 3}
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Values
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    gW = x[0] - x[1]**2 - x[2]**2 + 1 
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Area
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+     |ds("inlet")| = 3.12e+00
+    |ds("outlet")| = 3.12e+00
+      |ds("wall")| = 2.51e+01
+
+▬▬▬▬▬▬▬▬▬▬
+Exact Data
+▬▬▬▬▬▬▬▬▬▬
+     ud = x[0] - x[1]**2 - x[2]**2 + 1
+     fd = 4
+    ugd = x[0] - x[1]**2 - x[2]**2 + 1
+     hd = 1
+
+▬▬▬▬▬▬▬
+Normals
+▬▬▬▬▬▬▬
+     inlet = [-1  0  0] (|n| = 1.0)
+    outlet = [1 0 0] (|n| = 1.0)
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Finite Element Data
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+      Th = P1 x P1 x P1 x P1 x P1
+     nel = 7.936 K
+       h = 5.445e-01
+    cell = tetrahedron
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Cost parameters
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+      a_z = (10.0, 0.1)
+      a_f = (0.0, 0.01)
+     a_ug = (0.0, 0.001)
+      a_h = (0.0, 0.0001)
+     dm_z = dx
+     dm_f = dx
+    dm_ug = ds
+     dm_h = ds
+
+▬▬▬▬▬▬▬▬▬▬▬
+System data
+▬▬▬▬▬▬▬▬▬▬▬
+      Nonzeros: 568.525 K
+          DOFS: 8.785 K
+ Linear Solver: tfqmr
+Preconditioner: jacobi
+Runtime: 00:00:00.773
+
+▬▬▬▬▬▬▬▬▬
+Cost Data
+▬▬▬▬▬▬▬▬▬
+    J(u, f, ug, h) = 1.385e-02
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Approach error
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+                         L²      L²(%)       H¹       H¹(%)  
+|| u -  ud||_X(Ω)     3.092e-02  (0.99%)  3.448e-01  (10.17%)
+|| f -  fd||_X(Ω)     9.629e-02  (2.56%)  2.268e-01   (6.03%)
+||ug - ugd||_X(Γin)   8.241e-03  (0.82%)  1.766e+00  (98.78%)
+|| h -  hd||_X(Γout)  7.607e-02  (5.72%)  4.684e-01  (35.24%)

@@ -1113,7 +1113,7 @@ for k, errors_k in errorsTime.items():
 if showSolution:
     # Show the dynamic plot
     fig = dynamicComparison(
-        (numericalDataTime['u'], exactDataTime['ud']),
+        (numericalDataTime['u'], exactDataTime['u']),
         iterator=arange(0, Tf+_dt, _dt),
         labels=['U', 'ud'],
         linestyles=['-', ''],

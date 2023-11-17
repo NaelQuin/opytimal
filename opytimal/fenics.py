@@ -2094,7 +2094,7 @@ def showProblemData(
     showInfo("Normals", copyTo=copyTo)
     showInfo(
         *[f'{k} = {n} '
-            + (f'(|n| = {(n**2).sum()**0.5:1.02})'
+            + (f'(|n| = {(np.array(n)**2).sum()**0.5:1.02})'
                 if type(n) in [list, tuple, np.ndarray]
                 else '')
             for k, n in normals.items()],

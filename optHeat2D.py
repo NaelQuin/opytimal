@@ -16,8 +16,8 @@ dt = {
     2: 1e-3
 }[1]
 
-meshPath = './InputData/Meshes/2D/rectangle4'
-boundaryDataPath = './InputData/Meshes/2D/rectangle4_mf'
+meshPath = './meshes/2D/rectangle4'
+boundaryDataPath = './meshes/2D/rectangle4_mf'
 
 boundaryMark = {
     'inlet': 1,
@@ -253,8 +253,6 @@ if externalTxt is not None:
 
 # Turn to analytical function object
 _ud = AnalyticalFunction(ud(x, y, z, t=t), toccode=True)
-
-input(_ud._grad)
 
 # Check if is a optimal problem
 optimal = any(controls)
@@ -927,7 +925,7 @@ while t < Tf:
         progressBar.update,
         t,
         suffix=showErrors(
-            {k: (np.array(v)**2).sum()**0.5 for k, v in errors['u'].items()},
+            {k: (array(v)**2).sum()**0.5 for k, v in errors['u'].items()},
             mode='horizontal',
             preffix=4*' ' + 'L²(0,T): '
             )
@@ -956,12 +954,12 @@ for k, errors_k in errorsByTime.items():
     for eType, error in errors_k.items():
         # Absolute errors
         errorsTime[k]['L²'][eType] = (
-            arrNorm(np.array(error)[:, 0], 'l2')
-            #(np.array(error)[:, 0]**2).sum()**0.5,
+            arrNorm(array(error)[:, 0], 'l2')
+            #(array(error)[:, 0]**2).sum()**0.5,
         )
         errorsTime[k]['L∞'][eType] = (
-            arrNorm(np.array(error)[:, 0], 'loo')
-            #np.array(error)[:, 0].max(),
+            arrNorm(array(error)[:, 0], 'loo')
+            #array(error)[:, 0].max(),
         )
 
         # # Relative errors
@@ -995,7 +993,7 @@ if showSolution:
     # Show the dynamic plot
     fig = dynamicComparison(
         (numericalDataTime['u'], exactDataTime['ud']),
-        iterator=np.arange(0, Tf+_dt, _dt),
+        iterator=arange(0, Tf+_dt, _dt),
         labels=['U', 'ud'],
         linestyles=['-', ''],
         markers=['o', '*'],
@@ -1010,7 +1008,7 @@ if showSolution:
         # Show the dynamic plot
         fig = dynamicComparison(
             (numericalDataTime[c], exactDataTime[c]),
-            iterator=np.arange(0, Tf+_dt, _dt),
+            iterator=arange(0, Tf+_dt, _dt),
             labels=[c.upper(), f'{c}d'],
             linestyles=['-', ''],
             markers=['o', '*'],

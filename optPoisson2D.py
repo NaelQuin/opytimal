@@ -10,8 +10,8 @@ from opytimal.settings import QUADRATURE_DEG
 # Input Data Begin
 # ================
 num = 4
-meshPath = f'./InputData/Meshes/2D/rectangle{num}'
-boundaryDataPath = f'./InputData/Meshes/2D/rectangle{num}_mf'
+meshPath = f'./meshes/2D/rectangle{num}'
+boundaryDataPath = f'./meshes/2D/rectangle{num}_mf'
 
 boundaryMark = {
     'inlet': 1,
