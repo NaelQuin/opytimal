@@ -2,6 +2,7 @@
 Optimal Control Stokes-based Problem on 3D domain
 '''
 
+import os
 from dolfin import *
 from opytimal import *
 from opytimal.settings import QUADRATURE_DEG
@@ -9,9 +10,14 @@ from opytimal.settings import QUADRATURE_DEG
 # ================
 # Input Data Begin
 # ================
-num = 5
-meshPath = f'./meshes/3D/cylinder{num}'
-boundaryDataPath = f'./meshes/3D/cylinder{num}_mf'
+choice = 1
+meshName ={
+    1: "cylinder3",
+    2: "cylinder4",
+    3: "cylinder5",
+}[choice]
+meshPath = f'./meshes/3D/{meshName}'
+boundaryDataPath = f'./meshes/3D/{meshName}_mf'
 
 boundaryMark = {
     'inlet': 1,
@@ -52,7 +58,7 @@ outputFileNameRoot = splitPathFile(__file__) # The script file name
 
 functionsToExport = [
     'U', 'P', 'ud', 'pd',
-    'f', 'ug', 'h',
+    'f', 'U_g', 'H',
     'fd', 'ugd', 'hd',
     'f0', 'ug0', 'h0'
     ]
@@ -277,9 +283,9 @@ def J(
     ug = controls.get('ug', Zero(z.function_space()))
 
     # Set the cost function expression
-    expression = a['z'].values() @ normH1a(z + ug - ud, dm['z'])
+    expression = a['z'] @ normH1a(z + ug - ud, dm['z'])
     expression += sum(
-        [a[cName].values() @ normH1a(c, dm[cName])
+        [a[cName] @ normH1a(c, dm[cName])
             for cName, c in controls.items()]
     )
 
@@ -298,7 +304,7 @@ def gradJ(*aud, v):
     # Looping in tuple (coeff, func, measure)
     for a, u, dm in aud:
         # Eval the norm differentiating in respective tuple
-        grad += a.values() @ normH1aDiff(u, dm, v)
+        grad += a @ normH1aDiff(u, dm, v)
 
     return grad
 
@@ -371,7 +377,7 @@ dms = dm.copy()
 # Looping in controls
 for c in a_s.keys():
     # Turn to respective coefficients to constant
-    a_s[c] = Constant(a_s[c], name=f"a_{c}")
+    a_s[c] = array(a_s[c])
 
     # Evaluate the respective cost measure
     dm[c] = eval(replaceBoundNameByMark(f"{dm[c]}", boundaryMark))
@@ -975,22 +981,37 @@ if showSolution:
                                'grayscale']
         )
 
-# Set the solutions to export pvd file
-allFunctions = [
-    U, P, *C.values(),
-    *exactData.values(),
-    *initialControls.values()
-]
+if optimal:
+    # Set the solutions to export pvd file
+    allFunctions = [
+        U, P, *C.values(),
+        *exactData.values(),
+        *initialControls.values()
+    ]
+else:
+    # Set the solutions to export pvd file
+    allFunctions = [
+        U, P, *exactData.values()
+    ]
 
+showInfo("Exporting solutions to PVD")
 # Looping in solutions to export
 for sol in allFunctions:
 
+    print(f'  {sol.name():>2}: {outputSolutionsPaths[sol.name()]}')
     if sol.name() in outputSolutionsPaths:
         # Create respective file
         file = File(outputSolutionsPaths[sol.name()])
 
     # Export the respective solution
     file.write(sol)
+
+try:
+    os.system(
+        f"paraview {os.path.dirname(outputSolutionsPaths[sol.name()])}/*.pvd"
+    )
+except Exception:
+    pass
 
 if outputData is not None:
     # Close the external txt file

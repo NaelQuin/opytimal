@@ -2,6 +2,7 @@
 Optimal Control Stokes-based Problem on 2D domain
 '''
 
+import os
 from dolfin import *
 from opytimal import *
 from opytimal.settings import QUADRATURE_DEG
@@ -9,9 +10,14 @@ from opytimal.settings import QUADRATURE_DEG
 # ================
 # Input Data Begin
 # ================
-num = 3
-meshPath = f'../meshes/2D/rectangle{num}'
-boundaryDataPath = f'../meshes/2D/rectangle{num}_mf'
+choice = 2
+meshName ={
+    1: "rectangle3",
+    2: "rectangle4",
+    3: "rectangle5",
+}[choice]
+meshPath = f'./meshes/2D/{meshName}'
+boundaryDataPath = f'./meshes/2D/{meshName}_mf'
 
 boundaryMark = {
     'inlet': 1,
@@ -29,7 +35,7 @@ normals = {
 invertNormalOrientation = False # Multiply all normals to -1
 
 showMesh = False # Turn to True to check the normal vectors
-showSolution = True
+showSolution = False
 showSolutionMode = {
     1: 'solutions',
     2: 'numerical_error',
@@ -67,7 +73,7 @@ outputFileNameRoot = splitPathFile(__file__) # The script file name
 
 functionsToExport = [
     'U', 'P', 'ud', 'pd',
-    'f', 'ug', 'h',
+    'f', 'U_g', 'H',
     'fd', 'ugd', 'hd',
     'f0', 'ug0', 'h0'
     ]
@@ -120,7 +126,8 @@ controls = {
     3: ['f', 'h'], # Mixed Controls (Neumann)
     4: ['f', 'ug'], # Mixed Controls (Dirichlet)
     5: ['ug'], # One Control
-    6: [] # Without controls solve only the state equation
+    6: ['h'], # One Control
+    7: [] # Without controls solve only the state equation
     }[2]
 
 linSolver = {
@@ -294,9 +301,9 @@ def J(
     ug = controls.get('ug', Zero(z.function_space()))
 
     # Set the cost function expression
-    expression = a['z'].values() @ normH1a(z + ug - ud, dm['z'])
+    expression = a['z'] @ normH1a(z + ug - ud, dm['z'])
     expression += sum(
-        [a[cName].values() @ normH1a(c, dm[cName])
+        [a[cName] @ normH1a(c, dm[cName])
             for cName, c in controls.items()]
     )
 
@@ -315,7 +322,7 @@ def gradJ(*aud, v):
     # Looping in tuple (coeff, func, measure)
     for a, u, dm in aud:
         # Eval the norm differentiating in respective tuple
-        grad += a.values() @ normH1aDiff(u, dm, v)
+        grad += a @ normH1aDiff(u, dm, v)
 
     return grad
 
@@ -382,7 +389,7 @@ dms = dm.copy()
 # Looping in controls
 for c in a_s.keys():
     # Turn to respective coefficients to constant
-    a_s[c] = Constant(a_s[c], name=f"a_{c}")
+    a_s[c] = array(a_s[c])
 
     # Evaluate the respective cost measure
     dm[c] = eval(replaceBoundNameByMark(f"{dm[c]}", boundaryMark))
@@ -911,18 +918,20 @@ elif not optimal and validation:
 # Calcule approach errors
 errors = evaluateErrors(*errorsArgs, **errorsKwargs)
 
-# Null all values over the respective mesh boundary
-UG = Function(VOptC['ug'], name='U_g')
-DirichletBC(VOptC['ug'], C['ug']/norm(C['ug'].vector()), lambda x, on: on and (x[0] == 0)).apply(
-    UG.vector()
-    )
-C['ug'] = UG
+if 'ug' in controls:
+    # Null all values over the respective mesh boundary
+    UG = Function(VOptC['ug'], name='U_g')
+    DirichletBC(VOptC['ug'], C['ug']/norm(C['ug'].vector()), lambda x, on: on and (x[0] == 0)).apply(
+        UG.vector()
+        )
+    C['ug'] = UG
 
-H = Function(VOptC['h'], name='H')
-DirichletBC(VOptC['h'], C['h']/norm(C['h'].vector()), lambda x, on: on and (x[0] == 4)).apply(
-    H.vector()
-    )
-C['h'] = H
+if 'h' in controls:
+    H = Function(VOptC['h'], name='H')
+    DirichletBC(VOptC['h'], C['h']/norm(C['h'].vector()), lambda x, on: on and (x[0] == 4)).apply(
+        H.vector()
+        )
+    C['h'] = H
 
 # Show the approach error
 showError(errors, omg, precision=3, copyTo=outputData)
@@ -982,12 +991,14 @@ if showSolution:
 
         # Calcule the absolute difference between numerical and
         # exact functions
-        [setLocal(
-            E[s], abs(
-                (getLocal(E[s]) - getLocal(exactData[s]))
-                    /abs(getLocal(exactData[s])).max()
-            ))
-            for s in E.keys()]
+        for s in E.keys():
+            _errorDenominator = abs(getLocal(exactData[s])).max()
+            if _errorDenominator == 0:
+                _errorDenominator = 1
+            _error = (getLocal(E[s]) - getLocal(exactData[s]))/_errorDenominator
+            setLocal(
+                E[s], abs(_error)
+            )
 
 
         if "numerical" in showSolutionMode:
@@ -1061,22 +1072,37 @@ if showSolution:
         props=graphProperty
         )
 
-# Set the solutions to export pvd file
-allFunctions = [
-    U, P, *C.values(),
-    *exactData.values(),
-    *initialControls.values()
-]
+if optimal:
+    # Set the solutions to export pvd file
+    allFunctions = [
+        U, P, *C.values(),
+        *exactData.values(),
+        *initialControls.values()
+    ]
+else:
+    # Set the solutions to export pvd file
+    allFunctions = [
+        U, P, *exactData.values()
+    ]
 
+showInfo("Exporting solutions to PVD")
 # Looping in solutions to export
 for sol in allFunctions:
 
+    print(f'  {sol.name():>2}: {outputSolutionsPaths[sol.name()]}')
     if sol.name() in outputSolutionsPaths:
         # Create respective file
         file = File(outputSolutionsPaths[sol.name()])
 
     # Export the respective solution
     file.write(sol)
+
+try:
+    os.system(
+        f"paraview {os.path.dirname(outputSolutionsPaths[sol.name()])}/*.pvd"
+    )
+except Exception:
+    pass
 
 if outputData is not None:
     # Close the external txt file

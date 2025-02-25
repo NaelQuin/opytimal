@@ -536,31 +536,31 @@ else:
 # Turn input functions to expression
 udExpr = setExpression(_ud, elements[0], name='ud')
 if 'f' not in controls:
-    fExpr = setExpression(f, elements[0], name='f')
+    fdExpr = setExpression(f, elements[0], name='f')
 if 'ug' not in controls:
-    gExpr = setExpression(g, elements[0], name='g')
+    gdExpr = setExpression(g, elements[0], name='g')
 if 'h' not in controls:
-    hExpr = setExpression(h, elements[0], name='h')
+    hdExpr = setExpression(h, elements[0], name='h')
 
 # Set the current input functions
 ud = interpolate(udExpr, Vc); ud.rename('ud', 'ud')
 if 'f' not in controls:
-    f = interpolate(fExpr, Vc); f.rename('f', 'f')
+    f = interpolate(fdExpr, Vc); f.rename('f', 'f')
 if 'ug' not in controls:
-    g = interpolate(gExpr, Vc); g.rename('g', 'g')
+    g = interpolate(gdExpr, Vc); g.rename('g', 'g')
 if 'h' not in controls:
-    h = interpolate(hExpr, Vc); h.rename('h', 'h')
+    h = interpolate(hdExpr, Vc); h.rename('h', 'h')
 
 # Looping in controls
 for cLbl in controls:
 
-    if validation:
-        # Set the respective control input expressions
-        exec(f"{cLbl}dExpr = setExpression({cLbl}d, elements[0], name='{cLbl}d')")
+    # if validation:
+    #     # Set the respective control input expressions
+    #     exec(f"{cLbl}dExpr = setExpression({cLbl}d, elements[0], name='{cLbl}d')")
 
-        # Set the respective input data functions
-        exec(f"{cLbl}d = interpolate({cLbl}dExpr, VOptC['{cLbl}'])")
-        exec(f"{cLbl}d.rename('{cLbl}d', '{cLbl}d')")
+    #     # Set the respective input data functions
+    #     exec(f"{cLbl}d = interpolate({cLbl}dExpr, VOptC['{cLbl}'])")
+    #     exec(f"{cLbl}d.rename('{cLbl}d', '{cLbl}d')")
 
     if not allAtOnce:
         # Set the respective initial control expressions

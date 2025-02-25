@@ -1,0 +1,88 @@
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Problem Title
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Optimal Poisson-based Problem on rectangle5
+
+▬▬▬▬▬▬▬▬▬▬▬▬
+Program Mode
+▬▬▬▬▬▬▬▬▬▬▬▬
+    validation
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Data
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+           Amount = 3 (D: 2, N: 1)
+       Inlet mode = Dirichlet
+     Dof in inlet = 260
+           outlet = 260
+             wall = 1032
+            marks = {'inlet': 1, 'outlet': 2, 'wall': 3}
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Values
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    gW = 0.1*x[0] + x[1]*(2 - x[1]) 
+     g = 0.1*x[0] + x[1]*(2 - x[1]) (Max: 0.4)
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Area
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+     |ds("inlet")| = 2.00e+00
+    |ds("outlet")| = 2.00e+00
+      |ds("wall")| = 8.00e+00
+
+▬▬▬▬▬▬▬▬▬▬
+Exact Data
+▬▬▬▬▬▬▬▬▬▬
+    ud = 0.1*x[0] + x[1]*(2 - x[1])
+    fd = 2
+    hd = 0.100000000000000
+
+▬▬▬▬▬▬▬
+Normals
+▬▬▬▬▬▬▬
+     inlet = [-1  0  0] (|n| = 1.0)
+    outlet = [1 0 0] (|n| = 1.0)
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Finite Element Data
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+      Th = P1 x P1 x P1 x P1
+     nel = 22.016 K
+       h = 3.545e-02
+    cell = triangle
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Cost parameters
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+      a_z = (10.0, 0.1)
+      a_f = (0.0, 0.01)
+     a_ug = (0.0, 0.001)
+      a_h = (0.0, 0.0001)
+     dm_z = dx
+     dm_f = dx
+    dm_ug = ds
+     dm_h = ds
+
+▬▬▬▬▬▬▬▬▬▬▬
+System data
+▬▬▬▬▬▬▬▬▬▬▬
+      Nonzeros: 1.242 M
+          DOFS: 44.804 K
+ Linear Solver: tfqmr
+Preconditioner: jacobi
+Runtime: 00:00:01.248
+
+▬▬▬▬▬▬▬▬▬
+Cost Data
+▬▬▬▬▬▬▬▬▬
+    J(u, f, h) = 1.642e-08
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Approach error
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+                         L²      L²(%)       H¹      H¹(%)  
+|| u -  ud||_X(Ω)     3.396e-05  (0.00%)  4.548e-04  (0.02%)
+|| f -  fd||_X(Ω)     8.994e-05  (0.00%)  2.760e-04  (0.01%)
+|| h -  hd||_X(Γout)  8.512e-05  (0.02%)  7.184e-04  (0.19%)

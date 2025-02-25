@@ -20,7 +20,6 @@ setup(
         "fenics-dolfin==2019.2.0.dev0",
         "fenics-ffc==2019.2.0.dev0",
         "fenics-fiat==2019.2.0.dev0",
-        "fenics-ufl==2023.2.0",
         "fenics-ufl-legacy==2022.3.0",
         "screeninfo>=0.8.1",
         "termcolor>=2.2.0",
@@ -31,6 +30,7 @@ setup(
         "sympy>=1.11.1",
         "tikzplotlib>=0.8.2",
         "easygui>=0.98.1",
+        "psutil==7.0.0"
     ],
     keywords='optimalcontrol, FEniCS, FuildDynamics, NavierStokes, Stokes',
     classifiers= [

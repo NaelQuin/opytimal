@@ -1,0 +1,92 @@
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Problem Title
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+    Optimal Stokes-based Problem on cylinder3
+
+▬▬▬▬▬▬▬▬▬▬▬▬
+Program Mode
+▬▬▬▬▬▬▬▬▬▬▬▬
+    validation
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Data
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+           Amount = 3 (D: 2, N: 1)
+       Inlet mode = Dirichlet
+     Dof in inlet = 1806
+           outlet = 1806
+             wall = 8512
+            marks = {'inlet': 1, 'outlet': 2, 'wall': 3}
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Values
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+    gW = [-x[1]**2 - x[2]**2 + 1 0 0] 
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+Boundary Area
+▬▬▬▬▬▬▬▬▬▬▬▬▬
+     |ds("inlet")| = 3.12e+00
+    |ds("outlet")| = 3.12e+00
+      |ds("wall")| = 2.51e+01
+
+▬▬▬▬▬▬▬▬▬▬
+Exact Data
+▬▬▬▬▬▬▬▬▬▬
+     ud = ('-x[1]**2 - x[2]**2 + 1', '0', '0')
+     pd = 8 - 2*x[0]
+    ugd = [-x[1]**2 - x[2]**2 + 1 0 0]
+     hd = [2.0*x[0] - 8.0 0 0]
+
+▬▬▬▬▬▬▬▬▬▬
+Input Data
+▬▬▬▬▬▬▬▬▬▬
+    f = [2 0 0]
+
+▬▬▬▬▬▬▬
+Normals
+▬▬▬▬▬▬▬
+     inlet = [-1  0  0] (|n| = 1.0)
+    outlet = [1 0 0] (|n| = 1.0)
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Finite Element Data
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+      Th = P1[3] x P1 x P1[3] x P1 x P1[3] x P1[3]
+     nel = 7.936 K
+       h = 5.445e-01
+    cell = tetrahedron
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Cost parameters
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+      a_z = (10.0, 0.1)
+     a_ug = (0.01, 0.01)
+      a_h = (0.0, 0.1)
+     dm_z = dx
+    dm_ug = ds
+     dm_h = ds
+
+▬▬▬▬▬▬▬▬▬▬▬
+System data
+▬▬▬▬▬▬▬▬▬▬▬
+      Nonzeros: 4.457 M
+          DOFS: 24.598 K
+ Linear Solver: tfqmr
+Preconditioner: jacobi
+Runtime: 00:01:14.635
+
+▬▬▬▬▬▬▬▬▬
+Cost Data
+▬▬▬▬▬▬▬▬▬
+    J(u, ug, h) = 5.901e-01
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+Approach error
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+                         L²       L²(%)        H¹       H¹(%)   
+|| u -  ud||_X(Ω)     2.669e+00  (188.71%)  5.635e+00  (243.59%)
+|| p -  pd||_X(Ω)     4.833e+00  (119.63%)  6.025e+00  (142.86%)
+||ug - ugd||_X(Γin)   4.141e-01   (41.20%)  1.868e+00  (113.93%)
+|| h -  hd||_X(Γout)  5.443e-02    (5.44%)  3.535e+00  (188.03%)

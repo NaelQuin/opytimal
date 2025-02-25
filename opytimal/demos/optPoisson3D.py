@@ -2,6 +2,7 @@
 Optimal Poisson-based problem on 3D domain
 '''
 
+import os
 from dolfin import *
 from opytimal import *
 from opytimal.settings import QUADRATURE_DEG
@@ -9,9 +10,14 @@ from opytimal.settings import QUADRATURE_DEG
 # ================
 # Input Data Begin
 # ================
-num = 3
-meshPath = f'../meshes/3D/cylinder{num}'
-boundaryDataPath = f'../meshes/3D/cylinder{num}_mf'
+choice = 1
+meshName ={
+    1: "cylinder3",
+    2: "cylinder4",
+    3: "cylinder5",
+}[choice]
+meshPath = f'./meshes/3D/{meshName}'
+boundaryDataPath = f'./meshes/3D/{meshName}_mf'
 
 boundaryMark = {
     'inlet': 1,
@@ -29,7 +35,7 @@ normals = {
 invertNormalOrientation = False # Multiply all normals to -1
 
 showMesh = False # Turn to True to check the normal vectors
-showSolution = True
+showSolution = False
 showSolutionMode = {
     1: 'solutions',
     2: 'numerical_error',
@@ -90,12 +96,13 @@ Th = 'P1'
 # ================
 # Controls variables
 controls = {
-    1: ['f', 'ug', 'h'], # Total control
-    2: ['ug', 'h'], # Boundary controls
+    #1: ['f', 'ug', 'h'], # Total control
+    #2: ['ug', 'h'], # Boundary controls
     3: ['f', 'h'], # Mixed Controls (Neumann)
-    4: ['f', 'ug'], # Mixed Controls (Dirichlet)
-    5: ['h']
-    }[1]
+    #4: ['f', 'ug'], # Mixed Controls (Dirichlet)
+    5: ['h'], # Boundary control (Neumann)
+    6: [] # Non optimal control
+    }[3]
 
 linSolver = {
     # Default
@@ -260,9 +267,9 @@ def J(
 
     if not splitParcels:
         # Set the cost function expression
-        expression = a['z'].values() @ normH1a(z + ug - ud, dm['z'])
+        expression = a['z'] @ normH1a(z + ug - ud, dm['z'])
         expression += sum(
-            [a[cName].values() @ normH1a(c, dm[cName])
+            [a[cName] @ normH1a(c, dm[cName])
                 for cName, c in controls.items()]
         )
 
@@ -273,11 +280,11 @@ def J(
 
     else:
         # Multiply the parameters and set the state parcels
-        stateParcels = [*(a['z'].values() * normH1a(z + ug - ud, dm['z']))]
+        stateParcels = [*(a['z'] * normH1a(z + ug - ud, dm['z']))]
 
         # Multiply the parameters and set the controls parcels
         controlsParcels = [
-            (a[cName].values() * normH1a(c, dm[cName]))
+            (a[cName] * normH1a(c, dm[cName]))
                 for cName, c in controls.items()
         ]
 
@@ -299,7 +306,7 @@ def gradJ(*aud, v):
     # Looping in tuple (coeff, func, measure)
     for a, u, dm in aud:
         # Eval the norm differentiating in respective tuple
-        grad += a.values() @ normH1aDiff(u, dm, v)
+        grad += a @ normH1aDiff(u, dm, v)
 
     return grad
 # ==============
@@ -353,7 +360,7 @@ dms = dm.copy()
 # Looping in controls
 for c in a_s.keys():
     # Turn to respective coefficients to constant
-    a_s[c] = Constant(a_s[c], name=f"a_{c}")
+    a_s[c] = array(a_s[c])
 
     # Evaluate the respective cost measure
     dm[c] = eval(replaceBoundNameByMark(f"{dm[c]}", boundaryMark))
@@ -866,13 +873,14 @@ if showSolution:
 
         # Calcule the absolute difference between numerical and
         # exact functions
-        [setLocal(
-            E[s], abs(
-                (getLocal(E[s]) - getLocal(exactData[s]))
-                    /abs(getLocal(exactData[s])).max()
-            ))
-            for s in E.keys()]
-
+        for s in E.keys():
+            _errorDenominator = abs(getLocal(exactData[s])).max()
+            if _errorDenominator == 0:
+                _errorDenominator = 1
+            _error = (getLocal(E[s]) - getLocal(exactData[s]))/_errorDenominator
+            setLocal(
+                E[s], abs(_error)
+            )
 
         if "numerical" in showSolutionMode:
             # Get the solutions map
@@ -948,15 +956,24 @@ allFunctions = [
     *initialControls.values()
 ]
 
+showInfo("Exporting solutions to PVD")
 # Looping in solutions to export
 for sol in allFunctions:
 
+    print(f'  {sol.name():>2}: {outputSolutionsPaths[sol.name()]}')
     if sol.name() in outputSolutionsPaths:
         # Create respective file
         file = File(outputSolutionsPaths[sol.name()])
 
     # Export the respective solution
     file.write(sol)
+
+try:
+    os.system(
+        f"paraview {os.path.dirname(outputSolutionsPaths[sol.name()])}/*.pvd"
+    )
+except Exception:
+    pass
 
 if outputData is not None:
     # Close the external txt file
