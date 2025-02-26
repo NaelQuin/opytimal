@@ -10,11 +10,10 @@ from opytimal.settings import QUADRATURE_DEG
 # ================
 # Input Data Begin
 # ================
-choice = 2
+choice = 1
 meshName ={
-    1: "rectangle3",
-    2: "rectangle4",
-    3: "rectangle5",
+    1: "rectangle5",
+    2: "rectangle6",
 }[choice]
 meshPath = f'./meshes/2D/{meshName}'
 boundaryDataPath = f'./meshes/2D/{meshName}_mf'
@@ -121,14 +120,14 @@ def stabTerm(*trialTest, dm=dx):
 # ================
 # Controls variables
 controls = {
-    1: ['f', 'ug', 'h'], # Total control
-    2: ['ug', 'h'], # Boundary controls
+    #1: ['f', 'ug', 'h'], # Total control
+    #2: ['ug', 'h'], # Boundary controls
     3: ['f', 'h'], # Mixed Controls (Neumann)
-    4: ['f', 'ug'], # Mixed Controls (Dirichlet)
-    5: ['ug'], # One Control
+    #4: ['f', 'ug'], # Mixed Controls (Dirichlet)
+    #5: ['ug'], # One Control
     6: ['h'], # One Control
     7: [] # Without controls solve only the state equation
-    }[2]
+    }[3]
 
 linSolver = {
     # Default

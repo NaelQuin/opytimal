@@ -17,6 +17,7 @@ meshName ={
     1: "rectangle3",
     2: "rectangle4",
     3: "rectangle5",
+    4: "rectangle6",
 }[choice]
 meshPath = f'./meshes/2D/{meshName}'
 boundaryDataPath = f'./meshes/2D/{meshName}_mf'
@@ -818,8 +819,6 @@ elif not optimal:
     # Get solution
     Z = ZLZC
 
-    debug(globals(), locals())
-
 else:
     # Split the control solutions
     C = dict(zip(controls, C))
@@ -834,7 +833,7 @@ U.assign(Z)
 
 if 'ug' in controls:
     # Add the lifting contribution
-    setLocal(U, getLocal(U) + getLocal(C['ug']))
+    setLocal(U, getLocal(Z) + getLocal(C['ug']))
 
 # Set the evaluate errors function arguments
 errorsArgs = [(U, errors['u'])]

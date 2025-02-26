@@ -106,13 +106,13 @@ def stabTerm(*trialTest, dm=dx):
 # ================
 # Controls variables
 controls = {
-    1: ['f', 'ug', 'h'], # Total control
-    2: ['ug', 'h'], # Boundary controls
+    #1: ['f', 'ug', 'h'], # Total control
+    #2: ['ug', 'h'], # Boundary controls
     3: ['f', 'h'], # Mixed Controls (Neumann)
-    4: ['f', 'ug'], # Mixed Controls (Dirichlet)
-    5: ['ug'], # One Control
+    #4: ['f', 'ug'], # Mixed Controls (Dirichlet)
+    5: ['h'], # One Control
     6: [] # Without controls solve only the state equation
-    }[2]
+    }[3]
 
 linSolver = {
     # Default

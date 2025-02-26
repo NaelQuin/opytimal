@@ -122,7 +122,7 @@ controls = {
     4: ['f', 'ug'], # Mixed Controls (Dirichlet)
     5: ['h'],
     6: []
-    }[1]
+    }[5]
 
 linSolver = {
     # Default

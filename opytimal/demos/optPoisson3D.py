@@ -10,7 +10,7 @@ from opytimal.settings import QUADRATURE_DEG
 # ================
 # Input Data Begin
 # ================
-choice = 1
+choice = 2
 meshName ={
     1: "cylinder3",
     2: "cylinder4",
