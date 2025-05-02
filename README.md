@@ -6,6 +6,10 @@
 
 Opytimal is a Python/FEniCS framework with the main goal of solving Optimal Control problems considering multiple and mixed controls based to linear and nonlinear PDEs, in addition to solving PDEs with mixed boundary conditions simply and clearly.
 
+## 🔬 Publications
+
+- Quintino, N., & Tiago, J. (2025). Opytimal - A Python/FEniCS framework to solve PDE-based optimal control problems considering multiple controls in 2D and 3D domains. Research Square. [https://doi.org/10.21203/rs.3.rs-6546784/v1](https://doi.org/10.21203/rs.3.rs-6546784/v1)
+
 ## 🚀 Installation
 
 ```bash
